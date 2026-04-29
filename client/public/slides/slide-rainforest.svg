@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+  <defs>
+    <linearGradient id="forest" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#d9f1e6" />
+      <stop offset="100%" stop-color="#9ed7c1" />
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#forest)" />
+  <rect y="640" width="1600" height="260" fill="#1f7a4f" opacity="0.85" />
+  <path d="M200 640 L320 420 L440 640 Z" fill="#2f6f4f" />
+  <path d="M460 640 L600 380 L740 640 Z" fill="#2f6f4f" />
+  <path d="M760 640 L940 360 L1120 640 Z" fill="#1f6a46" />
+  <path d="M1040 640 L1180 420 L1320 640 Z" fill="#2f6f4f" />
+  <circle cx="1280" cy="210" r="100" fill="#f2b56b" opacity="0.8" />
+</svg>

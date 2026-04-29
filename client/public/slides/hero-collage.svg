@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+  <defs>
+    <linearGradient id="sky" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#e8f6f0" />
+      <stop offset="100%" stop-color="#b8dfcd" />
+    </linearGradient>
+    <linearGradient id="sea" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#bfe8e6" />
+      <stop offset="100%" stop-color="#7fbfa8" />
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#sky)" />
+  <rect x="0" y="0" width="320" height="900" fill="#cfe7da" />
+  <rect x="320" y="0" width="320" height="900" fill="#f0e4c8" />
+  <rect x="640" y="0" width="320" height="900" fill="#d8e4f2" />
+  <rect x="960" y="0" width="320" height="900" fill="#f2d7c6" />
+  <rect x="1280" y="0" width="320" height="900" fill="#d9ead9" />
+
+  <g opacity="0.95">
+    <rect x="0" y="540" width="320" height="360" fill="#2f6f4f" />
+    <path d="M40 620 C90 560, 140 560, 200 620" stroke="#0f2f23" stroke-width="14" fill="none" opacity="0.55" />
+    <circle cx="80" cy="260" r="95" fill="#2e9e6d" opacity="0.35" />
+  </g>
+
+  <g opacity="0.95">
+    <rect x="320" y="560" width="320" height="340" fill="#2e9e6d" />
+    <path d="M360 640 C430 560, 520 560, 600 640" stroke="#1f7a4f" stroke-width="16" fill="none" opacity="0.6" />
+    <rect x="380" y="300" width="180" height="90" rx="12" fill="#e7b36b" />
+  </g>
+
+  <g opacity="0.95">
+    <rect x="640" y="500" width="320" height="400" fill="url(#sea)" />
+    <circle cx="820" cy="210" r="90" fill="#f2b56b" opacity="0.85" />
+    <path d="M660 600 C740 630, 820 630, 900 600" stroke="#2e9e6d" stroke-width="14" fill="none" opacity="0.65" />
+  </g>
+
+  <g opacity="0.95">
+    <rect x="960" y="560" width="320" height="340" fill="#f2b56b" opacity="0.85" />
+    <path d="M1020 640 L1120 430 L1220 640 Z" fill="#2f6f4f" />
+    <path d="M1040 640 L1120 520 L1200 640 Z" fill="#1f7a4f" />
+  </g>
+
+  <g opacity="0.95">
+    <rect x="1280" y="520" width="320" height="380" fill="#2f6f4f" />
+    <path d="M1320 640 C1400 520, 1500 520, 1560 640 Z" fill="#1f7a4f" />
+    <rect x="1380" y="300" width="140" height="70" rx="10" fill="#f2b56b" />
+  </g>
+</svg>

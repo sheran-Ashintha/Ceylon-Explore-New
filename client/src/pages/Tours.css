@@ -1,0 +1,104 @@
+.tp-card {
+  cursor: default;
+}
+
+.tp-contact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+
+.tp-contact-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tp-contact-card--wide {
+  grid-column: 1 / -1;
+}
+
+.tp-contact-card span {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.54);
+}
+
+.tp-contact-card strong {
+  color: #ffffff;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.tp-contact-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.85rem;
+}
+
+.tp-contact-link {
+  color: #8ec5ff;
+  text-decoration: none;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.tp-contact-link:hover {
+  color: #ffffff;
+}
+
+.tp-card-actions {
+  display: flex;
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+
+.tp-card-actions .sp-card-btn,
+.tp-card-btn-secondary {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.tp-card-btn-secondary {
+  padding: 0.82rem 1rem;
+  border-radius: 16px;
+  border: 1px solid rgba(20, 184, 166, 0.34);
+  background: rgba(20, 184, 166, 0.12);
+  color: #a7f3d0;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.tp-card-btn-secondary:hover {
+  transform: translateY(-1px);
+  background: rgba(20, 184, 166, 0.2);
+  border-color: rgba(20, 184, 166, 0.46);
+  color: #ffffff;
+}
+
+@media (max-width: 640px) {
+  .tp-contact-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tp-contact-card--wide {
+    grid-column: auto;
+  }
+
+  .tp-card-actions {
+    flex-direction: column;
+  }
+}

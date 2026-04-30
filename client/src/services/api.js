@@ -24,6 +24,14 @@ export const getDestination = (id) => API.get(`/destinations/${id}`);
 export const getPackages = (params) => API.get("/packages", { params });
 export const getPackageBySlug = (slug) => API.get(`/packages/${slug}`);
 
+// Shops
+export const getShops = (params) => API.get("/shops", { params });
+export const getShopById = (id) => API.get(`/shops/${id}`);
+
+// Tours
+export const getTourServices = (params) => API.get("/tours", { params });
+export const getTourService = (id) => API.get(`/tours/${id}`);
+
 // Bookings
 export const createBooking = (data) => API.post("/bookings", data);
 export const getMyBookings = () => API.get("/bookings/my");

@@ -1,10 +1,12 @@
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import ChatRequestBadge from "../components/ChatRequestBadge";
 import { useAuth } from "../context/useAuth";
+import { getShopById } from "../services/api";
 import { useChatRequestCount } from "../utils/chatRequests";
 import { SITE_LANGUAGE_OPTIONS, useSiteLanguage } from "../utils/siteLanguage";
 import { getShoppingCategoryLabel, getShoppingCopy } from "../utils/siteTranslations";
-import { CATEGORY_ICONS, getRatingStars, getRatingText, getShopArea, SHOPS } from "./Shopping";
+import { CATEGORY_ICONS, getRatingStars, getRatingText, getShopArea } from "./Shopping";
 import "./Shopping.css";
 import "./ShopDetail.css";
 
@@ -18,11 +20,39 @@ export default function ShopDetail() {
   const chatRequestCount = useChatRequestCount(Boolean(user));
   const { language, setLanguage } = useSiteLanguage();
   const copy = getShoppingCopy(language);
+  const [shop, setShop] = useState(null);
+  const [relatedShops, setRelatedShops] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const shop = SHOPS.find((entry) => entry.id === shopId);
-  const relatedShops = shop
-    ? SHOPS.filter((candidate) => candidate.id !== shop.id && candidate.category === shop.category).slice(0, 3)
-    : [];
+  useEffect(() => {
+    let active = true;
+
+    setLoading(true);
+    getShopById(shopId)
+      .then((response) => {
+        if (!active) {
+          return;
+        }
+
+        setShop(response.data?.shop || null);
+        setRelatedShops(response.data?.relatedShops || []);
+      })
+      .catch(() => {
+        if (active) {
+          setShop(null);
+          setRelatedShops([]);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [shopId]);
   const languageSelector = (
     <div className="sp-lang">
       <span className="sp-lang-label">{copy.nav.selectLanguage}</span>
@@ -89,8 +119,8 @@ export default function ShopDetail() {
           <div className="sp-container">
             <div className="sd-empty">
               <span>🛍️</span>
-              <h1>{copy.detail.notFoundTitle}</h1>
-              <p>{copy.detail.notFoundBody}</p>
+              <h1>{loading ? "Loading store..." : copy.detail.notFoundTitle}</h1>
+              <p>{loading ? "Please wait while we load the latest store details." : copy.detail.notFoundBody}</p>
               <Link to="/shopping" className="sd-btn sd-btn--fill">
                 {copy.detail.backToShopping}
               </Link>

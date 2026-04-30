@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import ChatRequestBadge from "../components/ChatRequestBadge";
 import { useAuth } from "../context/useAuth";
 import { useChatRequestCount } from "../utils/chatRequests";
-import { createBooking, getDestinations } from "../services/api";
+import { createBooking, getDestinations, getShops, getTourServices } from "../services/api";
 import {
   getLocalizedSiteCopy,
   SITE_LANGUAGE_DATE_LOCALES,
@@ -17,12 +17,11 @@ import {
   mergePlannerDraft,
   parsePlannerMessage,
 } from "../utils/tripPlanner";
-import { PLANNER_CAFE_STOPS, PLANNER_TRANSPORT_SERVICES } from "../data/plannerAddOns";
 import "./TripPlanner.css";
 
-const PLANNER_ADD_ONS = {
-  transportServices: PLANNER_TRANSPORT_SERVICES,
-  cafeStops: PLANNER_CAFE_STOPS,
+const EMPTY_PLANNER_ADD_ONS = {
+  transportServices: [],
+  cafeStops: [],
 };
 
 const TRIP_PLANNER_COPY = {
@@ -237,8 +236,9 @@ export default function TripPlanner() {
   const navCopy = getDestinationCopy(language);
   const copy = getLocalizedSiteCopy(TRIP_PLANNER_COPY, language);
   const [destinations, setDestinations] = useState([]);
+  const [plannerAddOns, setPlannerAddOns] = useState(EMPTY_PLANNER_ADD_ONS);
   const [draft, setDraft] = useState(createEmptyPlannerDraft);
-  const [plan, setPlan] = useState(() => buildTripPlan(createEmptyPlannerDraft(), PLANNER_ADD_ONS));
+  const [plan, setPlan] = useState(() => buildTripPlan(createEmptyPlannerDraft(), EMPTY_PLANNER_ADD_ONS));
   const [messages, setMessages] = useState(() => getInitialMessages(copy));
   const [draftMessage, setDraftMessage] = useState("");
   const [loading, setLoading] = useState(true);
@@ -246,21 +246,41 @@ export default function TripPlanner() {
   const [error, setError] = useState("");
   const [savedPlanSignature, setSavedPlanSignature] = useState("");
   const messageListRef = useRef(null);
+  const latestDraftRef = useRef(createEmptyPlannerDraft());
+
+  useEffect(() => {
+    latestDraftRef.current = draft;
+  }, [draft]);
 
   useEffect(() => {
     let active = true;
 
-    getDestinations()
-      .then((response) => {
-        if (active) {
-          setDestinations(response.data || []);
-          setError("");
+    Promise.allSettled([
+      getDestinations(),
+      getShops({ category: "Coffee Shops", exactCategory: true }),
+      getTourServices(),
+    ])
+      .then(([destinationsResult, cafesResult, toursResult]) => {
+        if (!active) {
+          return;
         }
-      })
-      .catch(() => {
-        if (active) {
+
+        const nextAddOns = {
+          cafeStops: cafesResult.status === "fulfilled" ? cafesResult.value.data?.shops || [] : [],
+          transportServices: toursResult.status === "fulfilled" ? toursResult.value.data?.services || [] : [],
+        };
+
+        setPlannerAddOns(nextAddOns);
+  setPlan(buildTripPlan(latestDraftRef.current, nextAddOns));
+
+        if (destinationsResult.status !== "fulfilled") {
+          setDestinations([]);
           setError(copy.chat.unavailable);
+          return;
         }
+
+        setDestinations(destinationsResult.value.data || []);
+        setError("");
       })
       .finally(() => {
         if (active) {
@@ -449,14 +469,14 @@ export default function TripPlanner() {
     if (parsedMessage.reset) {
       const emptyDraft = createEmptyPlannerDraft();
       setDraft(emptyDraft);
-      setPlan(buildTripPlan(emptyDraft, PLANNER_ADD_ONS));
+      setPlan(buildTripPlan(emptyDraft, plannerAddOns));
       setMessages([...getInitialMessages(copy), createMessage("assistant", copy.messages.cleared)]);
       setError("");
       return;
     }
 
     const nextDraft = mergePlannerDraft(draft, parsedMessage);
-    const nextPlan = buildTripPlan(nextDraft, PLANNER_ADD_ONS);
+    const nextPlan = buildTripPlan(nextDraft, plannerAddOns);
     const reply = buildPlannerReply(copy, nextPlan, nextDraft, locale);
 
     setDraft(nextDraft);
@@ -473,7 +493,7 @@ export default function TripPlanner() {
   const handleReset = () => {
     const emptyDraft = createEmptyPlannerDraft();
     setDraft(emptyDraft);
-    setPlan(buildTripPlan(emptyDraft, PLANNER_ADD_ONS));
+    setPlan(buildTripPlan(emptyDraft, plannerAddOns));
     setDraftMessage("");
     setSavedPlanSignature("");
     setError("");

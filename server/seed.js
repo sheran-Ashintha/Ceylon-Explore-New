@@ -2,7 +2,11 @@
 require("dotenv").config();
 const mongoose = require("mongoose");
 const Destination = require("./models/Destination");
+const Shop = require("./models/Shop");
+const TourService = require("./models/TourService");
 const { syncPackageCatalog } = require("./utils/syncPackageCatalog");
+const { SHOPS } = require("./utils/shopCatalog");
+const { TOUR_SERVICES } = require("./utils/tourCatalog");
 
 const destinations = [
   {
@@ -231,10 +235,28 @@ async function seed() {
   try {
     await mongoose.connect(process.env.MONGO_URI);
     console.log("Connected to MongoDB");
-    await Destination.deleteMany({});
+    await Promise.all([
+      Destination.deleteMany({}),
+      Shop.deleteMany({}),
+      TourService.deleteMany({}),
+    ]);
     await Destination.insertMany(destinations);
+    await Shop.insertMany(
+      SHOPS.map((shop, index) => ({
+        ...shop,
+        displayOrder: index,
+      }))
+    );
+    await TourService.insertMany(
+      TOUR_SERVICES.map((service, index) => ({
+        ...service,
+        displayOrder: index,
+      }))
+    );
     const packageSync = await syncPackageCatalog({ replace: true });
-    console.log(`Seeded ${destinations.length} destinations and ${packageSync.count} packages successfully`);
+    console.log(
+      `Seeded ${destinations.length} destinations, ${SHOPS.length} shops, ${TOUR_SERVICES.length} tour services, and ${packageSync.count} packages successfully`
+    );
     process.exit(0);
   } catch (err) {
     console.error("Seed error:", err.message);

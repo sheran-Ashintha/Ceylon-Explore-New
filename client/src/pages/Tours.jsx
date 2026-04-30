@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import ChatRequestBadge from "../components/ChatRequestBadge";
 import { useAuth } from "../context/useAuth";
+import { getTourServices } from "../services/api";
 import { useChatRequestCount } from "../utils/chatRequests";
 import { getLocalizedSiteCopy, SITE_LANGUAGE_OPTIONS, useSiteLanguage } from "../utils/siteLanguage";
 import "./Shopping.css";
@@ -314,13 +315,48 @@ export default function Tours() {
   const chatRequestCount = useChatRequestCount(Boolean(user));
   const { language, setLanguage } = useSiteLanguage();
   const copy = getLocalizedSiteCopy(TOURS_COPY, language);
+  const [services, setServices] = useState([]);
+  const [categories, setCategories] = useState(CATEGORIES);
+  const [areas, setAreas] = useState(AREAS);
   const [activeCategory, setActiveCategory] = useState("All");
   const [activeArea, setActiveArea] = useState(AREA_ALL);
   const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    getTourServices()
+      .then((response) => {
+        if (!active) {
+          return;
+        }
+
+        setServices(response.data?.services || []);
+        setCategories(response.data?.categories || CATEGORIES);
+        setAreas(response.data?.areas || AREAS);
+        setError("");
+      })
+      .catch(() => {
+        if (active) {
+          setError("Unable to load transport services right now.");
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const visibleServices = useMemo(() => {
-    return TOUR_SERVICES.filter((service) => {
+    return services.filter((service) => {
       const matchesCategory = activeCategory === "All" || service.category === activeCategory;
       const matchesArea = activeArea === AREA_ALL || getServiceArea(service.location) === activeArea;
       const query = searchTerm.trim().toLowerCase();
@@ -336,7 +372,7 @@ export default function Tours() {
 
       return matchesCategory && matchesArea && matchesSearch;
     });
-  }, [activeArea, activeCategory, searchTerm]);
+  }, [activeArea, activeCategory, searchTerm, services]);
 
   const handleSearch = (event) => {
     event.preventDefault();
@@ -362,6 +398,14 @@ export default function Tours() {
   const hasActiveFilters = activeCategory !== "All" || activeArea !== AREA_ALL || searchTerm.trim() !== "";
   const locationLabel = activeArea === AREA_ALL ? "Sri Lanka" : activeArea;
   const serviceLabel = visibleServices.length === 1 ? copy.filters.serviceSingular : copy.filters.servicePlural;
+  const emptyTitle = loading
+    ? "Loading transport services..."
+    : error
+      ? "Unable to load transport services"
+      : copy.sections.noServicesFound;
+  const emptyBody = loading
+    ? "Please wait while we load the latest transport catalogue."
+    : error || copy.sections.noServicesBody;
   const languageSelector = (
     <div className="sp-lang">
       <span className="sp-lang-label">{copy.nav.selectLanguage}</span>
@@ -434,7 +478,7 @@ export default function Tours() {
       <div className="sp-tabs">
         <div className="sp-tabs-inner">
           <div className="sp-tabs-scroll">
-            {CATEGORIES.map((category) => (
+            {categories.map((category) => (
               <button
                 key={category}
                 type="button"
@@ -465,7 +509,7 @@ export default function Tours() {
                 value={activeArea}
                 onChange={(event) => setActiveArea(event.target.value)}
               >
-                {AREAS.map((area) => (
+                {areas.map((area) => (
                   <option key={area} value={area}>
                     {area === AREA_ALL ? copy.filters.allAreas : area}
                   </option>
@@ -504,9 +548,9 @@ export default function Tours() {
           {visibleServices.length === 0 ? (
             <div className="sp-empty">
               <span>🚐</span>
-              <h3>{copy.sections.noServicesFound}</h3>
-              <p>{copy.sections.noServicesBody}</p>
-              <button onClick={resetFilters}>{copy.sections.clearSearch}</button>
+              <h3>{emptyTitle}</h3>
+              <p>{emptyBody}</p>
+              {!loading && !error && <button onClick={resetFilters}>{copy.sections.clearSearch}</button>}
             </div>
           ) : (
             <div className="sp-grid">

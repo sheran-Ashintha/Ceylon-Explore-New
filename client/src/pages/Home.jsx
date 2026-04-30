@@ -763,6 +763,11 @@ export default function Home() {
           </Link>
           {user ? (
             <>
+              {user.role === "admin" ? (
+                <Link to="/admin" className="hp-nav-link">
+                  Admin
+                </Link>
+              ) : null}
               <Link to="/my-bookings" className="hp-nav-link">
                 {copy.nav.myBookings}
               </Link>

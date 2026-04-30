@@ -36,8 +36,8 @@ function Register() {
     }
     setSubmitting(true);
     try {
-      await register(form.name, form.email, form.password);
-      navigate("/");
+      const user = await register(form.name, form.email, form.password);
+      navigate(user?.role === "admin" ? "/admin" : "/");
     } catch (err) {
       setError(err.response?.data?.message || copy.register.errors.failed);
     } finally {

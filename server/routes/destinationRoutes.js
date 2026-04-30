@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const Destination = require("../models/Destination");
+const protect = require("../middleware/authMiddleware");
+const adminOnly = require("../middleware/adminMiddleware");
 
 // GET all destinations with optional search/filter
 router.get("/", async (req, res) => {
@@ -49,6 +51,21 @@ router.post("/", async (req, res) => {
     res.json(saved);
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+});
+
+// DELETE destination by ID (admin only)
+router.delete("/:id", protect, adminOnly, async (req, res) => {
+  try {
+    const deletedDestination = await Destination.findByIdAndDelete(req.params.id);
+
+    if (!deletedDestination) {
+      return res.status(404).json({ message: "Destination not found." });
+    }
+
+    return res.json({ message: "Destination deleted." });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
   }
 });
 

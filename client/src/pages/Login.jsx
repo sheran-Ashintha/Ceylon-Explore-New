@@ -30,8 +30,8 @@ function Login() {
     setSubmitting(true);
 
     try {
-      await loginWithGoogle(credential);
-      navigate("/");
+      const user = await loginWithGoogle(credential);
+      navigate(user?.role === "admin" ? "/admin" : "/");
     } catch (err) {
       setError(err.response?.data?.message || copy.login.errors.failed);
     } finally {
@@ -109,8 +109,8 @@ function Login() {
     }
     setSubmitting(true);
     try {
-      await login(form.email, form.password);
-      navigate("/");
+      const user = await login(form.email, form.password);
+      navigate(user?.role === "admin" ? "/admin" : "/");
     } catch (err) {
       setError(err.response?.data?.message || copy.login.errors.failed);
     } finally {

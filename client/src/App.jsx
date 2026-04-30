@@ -15,6 +15,7 @@ const ShopDetail = lazy(() => import("./pages/ShopDetail"));
 const Tours = lazy(() => import("./pages/Tours"));
 const Chat = lazy(() => import("./pages/Chat"));
 const TripPlanner = lazy(() => import("./pages/TripPlanner"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 
 function SiteLoader() {
   return (
@@ -33,6 +34,13 @@ function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return null;
   return user ? children : <Navigate to="/login" replace />;
+}
+
+function AdminRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  return user.role === "admin" ? children : <Navigate to="/" replace />;
 }
 
 function ScrollToTop() {
@@ -75,6 +83,7 @@ function App() {
             <Route path="/my-bookings" element={<ProtectedRoute><MyBookings /></ProtectedRoute>} />
             <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
             <Route path="/plan-trip" element={<ProtectedRoute><TripPlanner /></ProtectedRoute>} />
+            <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
             <Route path="/tours" element={<Tours />} />
             <Route path="/shopping" element={<Shopping />} />
             <Route path="/shopping/:shopId" element={<ShopDetail />} />

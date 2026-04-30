@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nodemon server.js",
     "seed": "node seed.js",
+    "create:admin": "node createAdmin.js",
     "sync:packages": "node syncPackages.js"
   },
   "keywords": [],

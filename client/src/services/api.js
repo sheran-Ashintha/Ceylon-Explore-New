@@ -16,21 +16,35 @@ export const loginUser = (data) => API.post("/auth/login", data);
 export const loginWithGoogle = (data) => API.post("/auth/google", data);
 export const getMe = () => API.get("/auth/me");
 
+// Users
+export const getUsers = () => API.get("/users");
+export const deleteUser = (id) => API.delete(`/users/${id}`);
+
 // Destinations
 export const getDestinations = (params) => API.get("/destinations", { params });
 export const getDestination = (id) => API.get(`/destinations/${id}`);
+export const deleteDestination = (id) => API.delete(`/destinations/${id}`);
 
 // Packages
 export const getPackages = (params) => API.get("/packages", { params });
 export const getPackageBySlug = (slug) => API.get(`/packages/${slug}`);
+export const createPackage = (data) => API.post("/packages", data);
+export const updatePackage = (slug, data) => API.put(`/packages/${slug}`, data);
+export const deletePackage = (slug) => API.delete(`/packages/${slug}`);
 
 // Shops
 export const getShops = (params) => API.get("/shops", { params });
 export const getShopById = (id) => API.get(`/shops/${id}`);
+export const createShop = (data) => API.post("/shops", data);
+export const updateShop = (id, data) => API.put(`/shops/${id}`, data);
+export const deleteShop = (id) => API.delete(`/shops/${id}`);
 
 // Tours
 export const getTourServices = (params) => API.get("/tours", { params });
 export const getTourService = (id) => API.get(`/tours/${id}`);
+export const createTourService = (data) => API.post("/tours", data);
+export const updateTourService = (id, data) => API.put(`/tours/${id}`, data);
+export const deleteTourService = (id) => API.delete(`/tours/${id}`);
 
 // Bookings
 export const createBooking = (data) => API.post("/bookings", data);

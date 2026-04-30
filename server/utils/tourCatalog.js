@@ -193,54 +193,24 @@ function normalizeText(value = "") {
   return String(value).trim().toLowerCase();
 }
 
+function slugifyCatalogId(value = "") {
+  return String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+}
+
 function escapeRegex(value = "") {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function buildStaticTourAreas(services) {
+function buildTourAreas(services) {
   return [
     AREA_ALL,
     ...Array.from(new Set(services.map((service) => getTourArea(service.location)))).sort((left, right) => left.localeCompare(right)),
   ];
-}
-
-function filterStaticTourServices(services, query = {}) {
-  const category = String(query.category || "All").trim();
-  const area = String(query.area || AREA_ALL).trim();
-  const search = normalizeText(query.search);
-  const limit = Number(query.limit);
-  const exactCategory = normalizeText(query.exactCategory) === "true";
-
-  const filteredServices = services.filter((service) => {
-    const serviceArea = getTourArea(service.location);
-    const matchesCategory =
-      category === "All" ||
-      (exactCategory
-        ? service.category === category
-        : normalizeText(service.category).includes(normalizeText(category)));
-    const matchesArea = area === AREA_ALL || serviceArea === area;
-    const matchesSearch =
-      !search ||
-      [
-        service.id,
-        service.name,
-        service.category,
-        service.location,
-        service.description,
-        service.tag,
-        service.vehicle,
-        service.idealFor,
-        serviceArea,
-      ].some((value) => normalizeText(value).includes(search));
-
-    return matchesCategory && matchesArea && matchesSearch;
-  });
-
-  if (Number.isFinite(limit) && limit > 0) {
-    return filteredServices.slice(0, limit);
-  }
-
-  return filteredServices;
 }
 
 function buildTourQuery(query = {}) {
@@ -277,10 +247,6 @@ function buildTourQuery(query = {}) {
   return filter;
 }
 
-async function hasPersistedTourServices() {
-  return Boolean(await TourService.exists({}));
-}
-
 function getTourArea(location = "") {
   const parts = String(location)
     .split(",")
@@ -297,23 +263,15 @@ function getTourArea(location = "") {
 }
 
 async function getTourAreas() {
-  if (!(await hasPersistedTourServices())) {
-    return buildStaticTourAreas(TOUR_SERVICES);
-  }
-
   const services = await TourService.find({}, "location")
     .sort({ displayOrder: 1, _id: 1 })
     .lean();
 
-  return buildStaticTourAreas(services);
+  return buildTourAreas(services);
 }
 
 async function getFilteredTourServices(query = {}) {
   const limit = Number(query.limit);
-
-  if (!(await hasPersistedTourServices())) {
-    return filterStaticTourServices(TOUR_SERVICES, query);
-  }
 
   let serviceQuery = TourService.find(buildTourQuery(query))
     .sort({ displayOrder: 1, _id: 1 })
@@ -337,22 +295,23 @@ async function getTourCatalog(query = {}) {
 async function findTourServiceById(id) {
   const normalizedId = String(id).trim();
 
-  if (!(await hasPersistedTourServices())) {
-    return TOUR_SERVICES.find((service) => service.id === normalizedId) || null;
-  }
-
   return TourService.findOne({ id: normalizedId }).lean();
 }
 
-async function getRelatedTourServices(serviceId, category) {
-  if (!(await hasPersistedTourServices())) {
-    return TOUR_SERVICES.filter((service) => service.id !== serviceId && service.category === category).slice(0, 3);
-  }
+async function findTourServiceDocumentById(id) {
+  return TourService.findOne({ id: String(id).trim() });
+}
 
+async function getRelatedTourServices(serviceId, category) {
   return TourService.find({ id: { $ne: serviceId }, category })
     .sort({ displayOrder: 1, _id: 1 })
     .limit(3)
     .lean();
+}
+
+async function getNextTourDisplayOrder() {
+  const lastService = await TourService.findOne({}, "displayOrder").sort({ displayOrder: -1, _id: -1 }).lean();
+  return lastService ? Number(lastService.displayOrder) + 1 : 0;
 }
 
 module.exports = {
@@ -360,9 +319,12 @@ module.exports = {
   TOUR_CATEGORIES,
   TOUR_SERVICES,
   findTourServiceById,
+  findTourServiceDocumentById,
   getFilteredTourServices,
+  getNextTourDisplayOrder,
   getRelatedTourServices,
   getTourArea,
   getTourAreas,
   getTourCatalog,
+  slugifyCatalogId,
 };

@@ -755,53 +755,24 @@ function normalizeText(value = "") {
   return String(value).trim().toLowerCase();
 }
 
+function slugifyCatalogId(value = "") {
+  return String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+}
+
 function escapeRegex(value = "") {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function buildStaticShopAreas(shops) {
+function buildShopAreas(shops) {
   return [
     AREA_ALL,
     ...Array.from(new Set(shops.map((shop) => getShopArea(shop.location)))).sort((left, right) => left.localeCompare(right)),
   ];
-}
-
-function filterStaticShops(shops, query = {}) {
-  const category = String(query.category || "All").trim();
-  const area = String(query.area || AREA_ALL).trim();
-  const search = normalizeText(query.search);
-  const limit = Number(query.limit);
-  const exactCategory = normalizeText(query.exactCategory) === "true";
-
-  const filteredShops = shops.filter((shop) => {
-    const shopArea = getShopArea(shop.location);
-    const matchesCategory =
-      category === "All" ||
-      (exactCategory
-        ? shop.category === category
-        : normalizeText(shop.category).includes(normalizeText(category)));
-    const matchesArea = area === AREA_ALL || shopArea === area;
-
-    const matchesSearch =
-      !search ||
-      [
-        shop.id,
-        shop.name,
-        shop.category,
-        shop.location,
-        shop.description,
-        shop.tag,
-        shopArea,
-      ].some((value) => normalizeText(value).includes(search));
-
-    return matchesCategory && matchesArea && matchesSearch;
-  });
-
-  if (Number.isFinite(limit) && limit > 0) {
-    return filteredShops.slice(0, limit);
-  }
-
-  return filteredShops;
 }
 
 function buildShopQuery(query = {}) {
@@ -836,10 +807,6 @@ function buildShopQuery(query = {}) {
   return filter;
 }
 
-async function hasPersistedShops() {
-  return Boolean(await Shop.exists({}));
-}
-
 function getShopArea(location = "") {
   const parts = String(location)
     .split(",")
@@ -856,23 +823,15 @@ function getShopArea(location = "") {
 }
 
 async function getShopAreas() {
-  if (!(await hasPersistedShops())) {
-    return buildStaticShopAreas(SHOPS);
-  }
-
   const shops = await Shop.find({}, "location")
     .sort({ displayOrder: 1, _id: 1 })
     .lean();
 
-  return buildStaticShopAreas(shops);
+  return buildShopAreas(shops);
 }
 
 async function getFilteredShops(query = {}) {
   const limit = Number(query.limit);
-
-  if (!(await hasPersistedShops())) {
-    return filterStaticShops(SHOPS, query);
-  }
 
   let shopQuery = Shop.find(buildShopQuery(query))
     .sort({ displayOrder: 1, _id: 1 })
@@ -896,22 +855,23 @@ async function getShopCatalog(query = {}) {
 async function findShopById(id) {
   const normalizedId = String(id).trim();
 
-  if (!(await hasPersistedShops())) {
-    return SHOPS.find((shop) => shop.id === normalizedId) || null;
-  }
-
   return Shop.findOne({ id: normalizedId }).lean();
 }
 
-async function getRelatedShops(shopId, category) {
-  if (!(await hasPersistedShops())) {
-    return SHOPS.filter((shop) => shop.id !== shopId && shop.category === category).slice(0, 3);
-  }
+async function findShopDocumentById(id) {
+  return Shop.findOne({ id: String(id).trim() });
+}
 
+async function getRelatedShops(shopId, category) {
   return Shop.find({ id: { $ne: shopId }, category })
     .sort({ displayOrder: 1, _id: 1 })
     .limit(3)
     .lean();
+}
+
+async function getNextShopDisplayOrder() {
+  const lastShop = await Shop.findOne({}, "displayOrder").sort({ displayOrder: -1, _id: -1 }).lean();
+  return lastShop ? Number(lastShop.displayOrder) + 1 : 0;
 }
 
 module.exports = {
@@ -919,9 +879,12 @@ module.exports = {
   SHOP_CATEGORIES,
   SHOPS,
   findShopById,
+  findShopDocumentById,
   getFilteredShops,
+  getNextShopDisplayOrder,
   getRelatedShops,
   getShopArea,
   getShopAreas,
   getShopCatalog,
+  slugifyCatalogId,
 };

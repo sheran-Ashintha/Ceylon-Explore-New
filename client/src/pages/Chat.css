@@ -172,6 +172,179 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.cp-map-section {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cp-map-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.cp-map-head h3 {
+  color: #ffffff;
+  font-size: 0.95rem;
+}
+
+.cp-map-head p {
+  margin-top: 0.22rem;
+  color: rgba(216, 225, 239, 0.6);
+  font-size: 0.79rem;
+}
+
+.cp-location-toggle {
+  flex-shrink: 0;
+  padding: 0.5rem 0.82rem;
+  border-radius: 999px;
+  border: 1px solid rgba(96, 165, 250, 0.26);
+  background: rgba(37, 99, 235, 0.14);
+  color: #dbeafe;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cp-location-toggle--on {
+  border-color: rgba(45, 212, 191, 0.28);
+  background: rgba(20, 184, 166, 0.16);
+  color: #99f6e4;
+}
+
+.cp-location-toggle:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.cp-location-error {
+  margin-top: 0.7rem;
+  padding: 0.6rem 0.72rem;
+  border-radius: 12px;
+  border: 1px solid rgba(248, 113, 113, 0.24);
+  background: rgba(127, 29, 29, 0.2);
+  color: #fecaca;
+  font-size: 0.78rem;
+}
+
+.cp-map-shell {
+  margin-top: 0.72rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.cp-map-canvas {
+  width: 100%;
+  height: clamp(300px, 38vh, 420px);
+}
+
+.cp-map-person-icon {
+  background: transparent;
+  border: 0;
+}
+
+.cp-map-person-pin {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, #0ea5e9 0%, #22d3ee 100%);
+  border: 2px solid rgba(224, 242, 254, 0.95);
+  box-shadow: 0 10px 20px rgba(8, 47, 73, 0.42);
+}
+
+.cp-map-person-pin::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  transform: translateX(-50%) rotate(45deg);
+  background: #0891b2;
+  border-right: 2px solid rgba(224, 242, 254, 0.95);
+  border-bottom: 2px solid rgba(224, 242, 254, 0.95);
+}
+
+.cp-map-person-pin--you {
+  background: linear-gradient(145deg, #2563eb 0%, #60a5fa 100%);
+  box-shadow: 0 10px 20px rgba(30, 64, 175, 0.52);
+}
+
+.cp-map-person-pin--you::after {
+  background: #2563eb;
+}
+
+.cp-map-person-media {
+  width: 72%;
+  height: 72%;
+  border-radius: 999px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: rgba(2, 6, 23, 0.12);
+}
+
+.cp-map-person-emoji {
+  display: block;
+  font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.cp-map-person-photo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: cover;
+  border-radius: 999px;
+  border: 0;
+}
+
+.cp-map-person-initials {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 0.2rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 6, 23, 0.95);
+  border: 1px solid rgba(191, 219, 254, 0.85);
+  color: #dbeafe;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.cp-map-canvas .leaflet-control-attribution {
+  background: rgba(14, 23, 38, 0.8);
+  color: rgba(216, 225, 239, 0.72);
+  font-size: 0.63rem;
+}
+
+.cp-map-canvas .leaflet-control-attribution a {
+  color: rgba(191, 219, 254, 0.92);
+}
+
+.cp-map-note {
+  margin-top: 0.55rem;
+  color: rgba(216, 225, 239, 0.58);
+  font-size: 0.74rem;
+}
+
 .cp-request-head {
   margin-bottom: 0.75rem;
 }
@@ -532,7 +705,8 @@
 
   .cp-panel-head,
   .cp-compose-foot,
-  .cp-bubble-head {
+  .cp-bubble-head,
+  .cp-map-head {
     flex-direction: column;
     align-items: flex-start;
   }
@@ -569,6 +743,10 @@
 
   .cp-bubble {
     max-width: 100%;
+  }
+
+  .cp-map-canvas {
+    height: 300px;
   }
 
   .cp-messages {

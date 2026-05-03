@@ -4,9 +4,9 @@ import ChatRequestBadge from "../components/ChatRequestBadge";
 import { useAuth } from "../context/useAuth";
 import { getShopById } from "../services/api";
 import { useChatRequestCount } from "../utils/chatRequests";
+import { CATEGORY_ICONS, getRatingStars, getRatingText, getShopArea } from "../utils/shoppingHelpers";
 import { SITE_LANGUAGE_OPTIONS, useSiteLanguage } from "../utils/siteLanguage";
 import { getShoppingCategoryLabel, getShoppingCopy } from "../utils/siteTranslations";
-import { CATEGORY_ICONS, getRatingStars, getRatingText, getShopArea } from "./Shopping";
 import "./Shopping.css";
 import "./ShopDetail.css";
 
@@ -22,12 +22,12 @@ export default function ShopDetail() {
   const copy = getShoppingCopy(language);
   const [shop, setShop] = useState(null);
   const [relatedShops, setRelatedShops] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [resolvedShopId, setResolvedShopId] = useState("");
+  const loading = resolvedShopId !== String(shopId || "");
 
   useEffect(() => {
     let active = true;
 
-    setLoading(true);
     getShopById(shopId)
       .then((response) => {
         if (!active) {
@@ -45,7 +45,7 @@ export default function ShopDetail() {
       })
       .finally(() => {
         if (active) {
-          setLoading(false);
+          setResolvedShopId(String(shopId || ""));
         }
       });
 

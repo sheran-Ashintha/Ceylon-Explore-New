@@ -397,7 +397,11 @@ function recommendTransportServices(destinations, guests, transportServices, air
     }
   });
 
-  return selected.slice(0, 3).map(({ score, ...service }) => service);
+  return selected.slice(0, 3).map((service) => {
+    const normalizedService = { ...service };
+    delete normalizedService.score;
+    return normalizedService;
+  });
 }
 
 function recommendCafeStops(destinations, cafeStops) {
@@ -415,7 +419,11 @@ function recommendCafeStops(destinations, cafeStops) {
     })
     .sort((left, right) => right.score - left.score || right.rating - left.rating || right.reviewCount - left.reviewCount)
     .slice(0, 3)
-    .map(({ score, ...cafe }) => cafe);
+    .map((cafe) => {
+      const normalizedCafe = { ...cafe };
+      delete normalizedCafe.score;
+      return normalizedCafe;
+    });
 }
 
 function estimateTransportTotal(recommendations, destinations, airportTransferRequested) {

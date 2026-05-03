@@ -6,8 +6,7 @@ export function useChatRequestCount(enabled = true) {
 
   useEffect(() => {
     if (!enabled) {
-      setRequestCount(0);
-      return;
+      return undefined;
     }
 
     let active = true;
@@ -34,5 +33,5 @@ export function useChatRequestCount(enabled = true) {
     };
   }, [enabled]);
 
-  return requestCount;
+  return enabled ? requestCount : 0;
 }

@@ -98,7 +98,7 @@ function Login() {
         script.removeEventListener("error", handleScriptError);
       }
     };
-  }, [googleClientId, copy.login.errors.failed, handleGoogleCredential]);
+  }, [googleClientId, copy.login.errors.failed]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

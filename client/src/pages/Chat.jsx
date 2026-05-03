@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import L from "leaflet";
+import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import { Link } from "react-router-dom";
 import ChatRequestBadge from "../components/ChatRequestBadge";
 import { useAuth } from "../context/useAuth";
@@ -9,6 +11,7 @@ import {
   getChatMembers,
   getChatMessages,
   sendChatMessage,
+  updateChatLocation,
 } from "../services/api";
 import {
   getLocalizedSiteCopy,
@@ -16,6 +19,7 @@ import {
   SITE_LANGUAGE_OPTIONS,
   useSiteLanguage,
 } from "../utils/siteLanguage";
+import "leaflet/dist/leaflet.css";
 import "./Shopping.css";
 import "./Chat.css";
 
@@ -70,11 +74,26 @@ const CHAT_COPY = {
       decline: "Decline",
       accepting: "Accepting...",
       declining: "Declining...",
+      mapTitle: "Traveler map",
+      mapBody: "Share your location to show where you are currently available for chat.",
+      enableLocation: "Share my location",
+      disableLocation: "Hide my location",
+      updatingLocation: "Updating...",
+      noMapMembers: "No one is sharing location yet.",
+      mapPrivacyHint: "Only users who choose to share are visible on the map.",
+      locationActive: "Available on map",
+      locationUpdated: "Updated",
+      onMap: "On map",
     },
     errors: {
       loadMessages: "Failed to load chat messages.",
       sendMessage: "Failed to send your message.",
       addFriend: "Failed to update friend request.",
+      locationShare: "Failed to update your location sharing status.",
+      locationUnsupported: "Location sharing is not supported in this browser.",
+      locationPermission: "Location permission is blocked. Please allow it and try again.",
+      locationUnavailable: "Your current location could not be determined.",
+      locationTimeout: "Location lookup timed out. Please try again.",
     },
     footer: "© 2025 Ceylon Explore. All rights reserved.",
   },
@@ -113,6 +132,10 @@ const AVATAR_THEMES = [
   },
 ];
 
+const MAP_DEFAULT_CENTER = [7.8731, 80.7718];
+const MAP_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+const MAP_PERSON_EMOJIS = ["🧑", "👩", "👨", "👤", "🙂", "🙋", "🧔", "👵", "👴", "👱"];
+
 function formatTime(value, locale) {
   return new Intl.DateTimeFormat(locale, {
     hour: "numeric",
@@ -148,6 +171,66 @@ function getAvatarStyle(seed = "") {
   };
 }
 
+function getMapPersonEmoji(seed = "") {
+  const index = Array.from(String(seed)).reduce((sum, char) => sum + char.charCodeAt(0), 0) % MAP_PERSON_EMOJIS.length;
+  return MAP_PERSON_EMOJIS[index];
+}
+
+function createMemberMapIcon(member, isOwnLocation) {
+  const markerSeed = `${member.name || "Traveler"}-${member._id || "member"}`;
+  const emoji = getMapPersonEmoji(markerSeed);
+  const initials = getAvatarLabel(member.name || "Traveler");
+  const avatarUrl = String(member.avatarUrl || "").trim();
+  const markerMedia = avatarUrl
+    ? `<img class="cp-map-person-photo" src="${avatarUrl}" alt="${initials}" referrerpolicy="no-referrer" />`
+    : `<span class="cp-map-person-emoji" aria-hidden="true">${emoji}</span>`;
+
+  return L.divIcon({
+    className: "cp-map-person-icon",
+    html: `
+      <div class="cp-map-person-pin${isOwnLocation ? " cp-map-person-pin--you" : ""}">
+        <span class="cp-map-person-media">${markerMedia}</span>
+        <span class="cp-map-person-initials">${initials}</span>
+      </div>
+    `,
+    iconSize: [48, 58],
+    iconAnchor: [24, 56],
+    popupAnchor: [0, -46],
+  });
+}
+
+function requestCurrentPosition() {
+  return new Promise((resolve, reject) => {
+    if (!("geolocation" in navigator)) {
+      reject(new Error("UNSUPPORTED"));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 60000,
+    });
+  });
+}
+
+function getGeoErrorMessage(error, copy) {
+  if (error?.message === "UNSUPPORTED") {
+    return copy.errors.locationUnsupported;
+  }
+
+  switch (error?.code) {
+    case 1:
+      return copy.errors.locationPermission;
+    case 2:
+      return copy.errors.locationUnavailable;
+    case 3:
+      return copy.errors.locationTimeout;
+    default:
+      return copy.errors.locationShare;
+  }
+}
+
 export default function Chat() {
   const { user, logout } = useAuth();
   const { language, setLanguage } = useSiteLanguage();
@@ -163,9 +246,21 @@ export default function Chat() {
   const [processingMemberId, setProcessingMemberId] = useState("");
   const [processingAction, setProcessingAction] = useState("");
   const [error, setError] = useState("");
+  const [isSharingLocation, setIsSharingLocation] = useState(false);
+  const [locationUpdating, setLocationUpdating] = useState(false);
+  const [locationError, setLocationError] = useState("");
   const messageListRef = useRef(null);
 
   const memberCount = members.length;
+  const mapMembers = members.filter((member) => {
+    const latitude = Number(member.location?.latitude);
+    const longitude = Number(member.location?.longitude);
+    return Boolean(member.location?.isVisible) && Number.isFinite(latitude) && Number.isFinite(longitude);
+  });
+  const mapCenterMember = mapMembers.find((member) => member._id === currentUserId) || mapMembers[0];
+  const mapCenter = mapCenterMember
+    ? [Number(mapCenterMember.location.latitude), Number(mapCenterMember.location.longitude)]
+    : MAP_DEFAULT_CENTER;
 
   useEffect(() => {
     let active = true;
@@ -198,6 +293,7 @@ export default function Chat() {
         if (active) {
           setMembers(data.activeMembers || []);
           setIncomingRequests(data.incomingRequests || []);
+          setIsSharingLocation(Boolean(data.selfLocation?.isVisible));
         }
       } catch {
         // Keep chat usable even if the member list fails.
@@ -246,6 +342,60 @@ export default function Chat() {
       setError(err.response?.data?.message || copy.errors.sendMessage);
     } finally {
       setSending(false);
+    }
+  };
+
+  const applyOwnLocation = (nextLocation) => {
+    const latitude = Number(nextLocation?.latitude);
+    const longitude = Number(nextLocation?.longitude);
+    const normalizedLocation = {
+      isVisible: Boolean(nextLocation?.isVisible),
+      latitude: Number.isFinite(latitude) ? latitude : null,
+      longitude: Number.isFinite(longitude) ? longitude : null,
+      updatedAt: nextLocation?.updatedAt || null,
+    };
+
+    setIsSharingLocation(normalizedLocation.isVisible);
+    setMembers((prev) => prev.map((member) => (
+      member._id === currentUserId
+        ? { ...member, location: normalizedLocation }
+        : member
+    )));
+  };
+
+  const handleToggleLocationSharing = async () => {
+    if (locationUpdating) {
+      return;
+    }
+
+    setLocationUpdating(true);
+    setLocationError("");
+
+    try {
+      if (isSharingLocation) {
+        const { data } = await updateChatLocation({ isVisible: false });
+        applyOwnLocation(data.location);
+        return;
+      }
+
+      const position = await requestCurrentPosition();
+      const latitude = Number(position.coords.latitude.toFixed(5));
+      const longitude = Number(position.coords.longitude.toFixed(5));
+      const { data } = await updateChatLocation({
+        isVisible: true,
+        latitude,
+        longitude,
+      });
+
+      applyOwnLocation(data.location);
+    } catch (err) {
+      if (err.response?.data?.message) {
+        setLocationError(err.response.data.message);
+      } else {
+        setLocationError(getGeoErrorMessage(err, copy));
+      }
+    } finally {
+      setLocationUpdating(false);
     }
   };
 
@@ -517,6 +667,75 @@ export default function Chat() {
                 </div>
               </div>
 
+              <div className="cp-map-section">
+                <div className="cp-map-head">
+                  <div>
+                    <h3>{copy.panel.mapTitle}</h3>
+                    <p>{copy.panel.mapBody}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className={`cp-location-toggle${isSharingLocation ? " cp-location-toggle--on" : ""}`}
+                    onClick={handleToggleLocationSharing}
+                    disabled={locationUpdating}
+                  >
+                    {locationUpdating
+                      ? copy.panel.updatingLocation
+                      : isSharingLocation
+                        ? copy.panel.disableLocation
+                        : copy.panel.enableLocation}
+                  </button>
+                </div>
+
+                {locationError ? <div className="cp-location-error">{locationError}</div> : null}
+
+                <div className="cp-map-shell">
+                  {mapMembers.length === 0 ? (
+                    <div className="cp-empty-members">{copy.panel.noMapMembers}</div>
+                  ) : (
+                    <MapContainer
+                      key={mapCenter.join("-")}
+                      center={mapCenter}
+                      zoom={7}
+                      className="cp-map-canvas"
+                      scrollWheelZoom={false}
+                    >
+                      <TileLayer
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                        url={MAP_TILE_URL}
+                      />
+                      {mapMembers.map((member) => {
+                        const latitude = Number(member.location?.latitude);
+                        const longitude = Number(member.location?.longitude);
+                        const isOwnLocation = member._id === currentUserId;
+                        const markerIcon = createMemberMapIcon(member, isOwnLocation);
+
+                        return (
+                          <Marker
+                            key={`map-${member._id}`}
+                            position={[latitude, longitude]}
+                            icon={markerIcon}
+                          >
+                            <Popup>
+                              <strong>
+                                {member.name}
+                                {isOwnLocation ? ` (${copy.panel.you})` : ""}
+                              </strong>
+                              <p>{copy.panel.locationActive}</p>
+                              {member.location?.updatedAt ? (
+                                <p>{copy.panel.locationUpdated} {formatTime(member.location.updatedAt, locale)}</p>
+                              ) : null}
+                            </Popup>
+                          </Marker>
+                        );
+                      })}
+                    </MapContainer>
+                  )}
+                </div>
+
+                <p className="cp-map-note">{copy.panel.mapPrivacyHint}</p>
+              </div>
+
               <div className="cp-panel-head cp-panel-head--stack">
                 <div>
                   <h2>{copy.panel.membersTitle}</h2>
@@ -542,6 +761,7 @@ export default function Chat() {
                         <p>
                           {member.isActiveNow ? copy.panel.activeNow : copy.panel.recentlyActive}
                           {member.lastMessageAt ? ` · ${formatTime(member.lastMessageAt, locale)}` : ` · ${copy.panel.joined} ${formatJoinDate(member.createdAt, locale)}`}
+                          {member.location?.isVisible ? ` · ${copy.panel.onMap}` : ""}
                         </p>
                       </div>
                       {member._id !== currentUserId ? (

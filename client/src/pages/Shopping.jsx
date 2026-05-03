@@ -9,7 +9,7 @@ import { getShoppingCategoryLabel, getShoppingCopy } from "../utils/siteTranslat
 import "./Shopping.css";
 
 /* ── Static shop catalogue ───────────────────────────────────── */
-export const SHOPS = [
+const SHOPS = [
   /* Coffee Shops */
   {
     id: "cs1",
@@ -743,7 +743,7 @@ export const SHOPS = [
   },
 ];
 
-export const CATEGORIES = [
+const CATEGORIES = [
   "All",
   "Coffee Shops",
   "Jewellery",
@@ -757,7 +757,7 @@ export const CATEGORIES = [
   "Bookshops",
 ];
 
-export const CATEGORY_ICONS = {
+const CATEGORY_ICONS = {
   "All": "🛍️",
   "Coffee Shops": "☕",
   "Jewellery": "💎",
@@ -783,9 +783,9 @@ const PROVINCES = new Set([
   "Sabaragamuwa Province",
 ]);
 
-export const AREA_ALL = "All Areas";
+const AREA_ALL = "All Areas";
 
-export function getShopArea(location) {
+function getShopArea(location) {
   const parts = location.split(",").map((part) => part.trim()).filter(Boolean);
 
   for (let index = parts.length - 1; index >= 0; index -= 1) {
@@ -797,17 +797,17 @@ export function getShopArea(location) {
   return "Sri Lanka";
 }
 
-export const AREAS = [
+const AREAS = [
   AREA_ALL,
   ...Array.from(new Set(SHOPS.map((shop) => getShopArea(shop.location)))).sort((left, right) => left.localeCompare(right)),
 ];
 
-export function getRatingStars(rating) {
+function getRatingStars(rating) {
   const r = Math.max(1, Math.min(5, Math.round(rating)));
   return `${"★".repeat(r)}${"☆".repeat(5 - r)}`;
 }
 
-export function getRatingText(rating, reviewCount, language = "en") {
+function getRatingText(rating, reviewCount, language = "en") {
   const labels = getShoppingCopy(language).rating;
   const label = rating >= 4.7 ? labels.excellent : rating >= 4.2 ? labels.veryGood : labels.good;
   return reviewCount > 0 ? `${label} · ${reviewCount} ${reviewCount === 1 ? labels.reviewSingular : labels.reviewPlural}` : label;

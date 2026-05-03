@@ -2,6 +2,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { OAuth2Client } = require("google-auth-library");
 const User = require("../models/User");
+const { getAvatarUrl } = require("../utils/avatar");
 
 const googleClient = new OAuth2Client();
 
@@ -12,6 +13,7 @@ const serializeUser = (user) => ({
   name: user.name,
   email: user.email,
   role: user.role || "user",
+  avatarUrl: getAvatarUrl(user.email),
 });
 
 const getGoogleAudiences = () =>
@@ -137,7 +139,11 @@ const getMe = async (req, res) => {
   try {
     const user = await User.findById(req.userId).select("-password");
     if (!user) return res.status(404).json({ message: "User not found." });
-    res.json({ ...user.toObject(), role: user.role || "user" });
+    res.json({
+      ...user.toObject(),
+      role: user.role || "user",
+      avatarUrl: getAvatarUrl(user.email),
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

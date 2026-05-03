@@ -59,6 +59,7 @@ export const addReview = (destId, data) => API.post(`/destinations/${destId}/rev
 export const getChatMessages = () => API.get("/chat/messages");
 export const sendChatMessage = (data) => API.post("/chat/messages", data);
 export const getChatMembers = () => API.get("/chat/members");
+export const updateChatLocation = (data) => API.put("/chat/location", data);
 export const addChatFriend = (memberId) => API.post(`/chat/friends/${memberId}`);
 export const acceptChatFriendRequest = (memberId) => API.post(`/chat/friends/${memberId}/accept`);
 export const declineChatFriendRequest = (memberId) => API.post(`/chat/friends/${memberId}/decline`);

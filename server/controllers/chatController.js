@@ -1,7 +1,33 @@
 const ChatMessage = require("../models/ChatMessage");
 const User = require("../models/User");
+const { getAvatarUrl } = require("../utils/avatar");
 
 const ACTIVE_MEMBER_WINDOW_MS = 1000 * 60 * 30;
+const CHAT_COORDINATE_PRECISION = 5;
+
+function normalizeCoordinate(value) {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return Number(parsed.toFixed(CHAT_COORDINATE_PRECISION));
+}
+
+function toLocationPayload(member) {
+  const location = member?.chatLocation || {};
+  const latitude = Number(location.latitude);
+  const longitude = Number(location.longitude);
+  const hasCoordinates = Number.isFinite(latitude) && Number.isFinite(longitude);
+
+  return {
+    isVisible: Boolean(location.isVisible && hasCoordinates),
+    latitude: hasCoordinates ? latitude : null,
+    longitude: hasCoordinates ? longitude : null,
+    updatedAt: location.updatedAt || null,
+  };
+}
 
 function toMemberPayload(member, options) {
   const {
@@ -20,6 +46,8 @@ function toMemberPayload(member, options) {
     isFriend: friendIds.has(memberId),
     hasIncomingRequest: incomingRequestIds.has(memberId),
     hasOutgoingRequest: outgoingRequestIds.has(memberId),
+    avatarUrl: getAvatarUrl(member.email),
+    location: toLocationPayload(member),
   };
 }
 
@@ -38,12 +66,17 @@ async function getMessages(req, res) {
     const rawMessages = await ChatMessage.find()
       .sort({ createdAt: -1 })
       .limit(80)
-      .populate("sender", "name")
+      .populate("sender", "name email")
       .lean();
 
     const messages = rawMessages.reverse().map((message) => ({
       ...message,
-      sender: message.sender || { name: "Deleted user" },
+      sender: message.sender
+        ? {
+          ...message.sender,
+          avatarUrl: getAvatarUrl(message.sender.email),
+        }
+        : { name: "Deleted user", avatarUrl: "" },
     }));
 
     res.json(messages);
@@ -69,8 +102,16 @@ async function createMessage(req, res) {
       body,
     });
 
-    await message.populate("sender", "name");
-    res.status(201).json(message);
+    await message.populate("sender", "name email");
+    const payload = message.toObject();
+    payload.sender = payload.sender
+      ? {
+        ...payload.sender,
+        avatarUrl: getAvatarUrl(payload.sender.email),
+      }
+      : { name: "Deleted user", avatarUrl: "" };
+
+    res.status(201).json(payload);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -79,7 +120,7 @@ async function createMessage(req, res) {
 async function getMembers(req, res) {
   try {
     const currentUser = await User.findById(req.userId)
-      .select("friends friendRequestsReceived friendRequestsSent")
+      .select("friends friendRequestsReceived friendRequestsSent chatLocation")
       .lean();
 
     if (!currentUser) {
@@ -105,25 +146,29 @@ async function getMembers(req, res) {
     const recentActivityMap = new Map(
       recentMessages.map((entry) => [String(entry._id), entry.lastMessageAt]),
     );
+    const availableUsers = await User.find({ "chatLocation.isVisible": true })
+      .select("_id")
+      .lean();
+    const availableUserIds = availableUsers.map((entry) => String(entry._id));
 
-    const activeUserIds = recentMessages.map((entry) => String(entry._id));
-
-    if (!activeUserIds.includes(currentUserId)) {
-      activeUserIds.unshift(currentUserId);
-    }
+    const rankedMemberIds = Array.from(new Set([
+      currentUserId,
+      ...recentMessages.map((entry) => String(entry._id)),
+      ...availableUserIds,
+    ]));
 
     const relatedUserIds = Array.from(new Set([
-      ...activeUserIds,
+      ...rankedMemberIds,
       ...Array.from(incomingRequestIds),
       ...Array.from(outgoingRequestIds),
     ]));
 
     const members = await User.find({ _id: { $in: relatedUserIds } })
-      .select("_id name role createdAt")
+      .select("_id name email role createdAt chatLocation")
       .lean();
 
     const memberMap = new Map(members.map((member) => [String(member._id), member]));
-    const activeMembers = activeUserIds
+    const activeMembers = rankedMemberIds
       .map((id) => memberMap.get(id))
       .filter(Boolean)
       .map((member) => toMemberPayload(member, {
@@ -147,9 +192,83 @@ async function getMembers(req, res) {
         outgoingRequestIds,
         recentActivityMap,
       })),
+      selfLocation: toLocationPayload(currentUser),
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+}
+
+async function updateLocation(req, res) {
+  try {
+    const { isVisible, latitude, longitude } = req.body || {};
+
+    if (typeof isVisible !== "boolean") {
+      return res.status(400).json({ message: "isVisible must be a boolean value." });
+    }
+
+    if (!isVisible) {
+      const hiddenLocationUser = await User.findByIdAndUpdate(
+        req.userId,
+        {
+          $set: {
+            "chatLocation.isVisible": false,
+            "chatLocation.latitude": null,
+            "chatLocation.longitude": null,
+            "chatLocation.updatedAt": new Date(),
+          },
+        },
+        { new: true },
+      )
+        .select("chatLocation")
+        .lean();
+
+      if (!hiddenLocationUser) {
+        return res.status(404).json({ message: "User not found." });
+      }
+
+      return res.json({
+        message: "Location sharing is off.",
+        location: toLocationPayload(hiddenLocationUser),
+      });
+    }
+
+    const nextLatitude = normalizeCoordinate(latitude);
+    const nextLongitude = normalizeCoordinate(longitude);
+
+    if (!Number.isFinite(nextLatitude) || nextLatitude < -90 || nextLatitude > 90) {
+      return res.status(400).json({ message: "Latitude must be a valid number between -90 and 90." });
+    }
+
+    if (!Number.isFinite(nextLongitude) || nextLongitude < -180 || nextLongitude > 180) {
+      return res.status(400).json({ message: "Longitude must be a valid number between -180 and 180." });
+    }
+
+    const visibleLocationUser = await User.findByIdAndUpdate(
+      req.userId,
+      {
+        $set: {
+          "chatLocation.isVisible": true,
+          "chatLocation.latitude": nextLatitude,
+          "chatLocation.longitude": nextLongitude,
+          "chatLocation.updatedAt": new Date(),
+        },
+      },
+      { new: true },
+    )
+      .select("chatLocation")
+      .lean();
+
+    if (!visibleLocationUser) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    return res.json({
+      message: "Location shared with travelers.",
+      location: toLocationPayload(visibleLocationUser),
+    });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
   }
 }
 
@@ -288,4 +407,5 @@ module.exports = {
   declineFriendRequest,
   getMembers,
   getMessages,
+  updateLocation,
 };

@@ -43,12 +43,12 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// POST new destination
-router.post("/", async (req, res) => {
+// POST new destination (admin only)
+router.post("/", protect, adminOnly, async (req, res) => {
   try {
     const newDest = new Destination(req.body);
     const saved = await newDest.save();
-    res.json(saved);
+    res.status(201).json(saved);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

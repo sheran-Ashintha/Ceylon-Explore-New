@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 import {
+  createDestination,
   createPackage,
   createShop,
   createTourService,
@@ -42,6 +43,7 @@ const FALLBACK_TOUR_CATEGORIES = [
   "Safari Jeeps",
   "Coaches",
 ];
+const FALLBACK_DESTINATION_CATEGORIES = ["Hotel", "Villa", "Resort", "Guesthouse", "Hostel"];
 const FILTER_CATEGORY = "All";
 
 function buildEmptyPackageDraft(categories = FALLBACK_PACKAGE_CATEGORIES) {
@@ -53,6 +55,19 @@ function buildEmptyPackageDraft(categories = FALLBACK_PACKAGE_CATEGORIES) {
     price: "",
     text: "",
     image: "",
+  };
+}
+
+function buildEmptyDestinationDraft(categories = FALLBACK_DESTINATION_CATEGORIES) {
+  return {
+    name: "",
+    location: "",
+    category: categories[0] || FALLBACK_DESTINATION_CATEGORIES[0],
+    price: "",
+    tag: "",
+    image: "",
+    description: "",
+    amenities: "",
   };
 }
 
@@ -152,6 +167,9 @@ function AdminDashboard() {
   const [editingTourId, setEditingTourId] = useState("");
 
   const [packageDraft, setPackageDraft] = useState(() => buildEmptyPackageDraft());
+  const [destinationDraft, setDestinationDraft] = useState(() =>
+    buildEmptyDestinationDraft(FALLBACK_DESTINATION_CATEGORIES)
+  );
   const [shopDraft, setShopDraft] = useState(() => buildEmptyShopDraft(FALLBACK_SHOP_CATEGORIES));
   const [tourDraft, setTourDraft] = useState(() => buildEmptyTourDraft(FALLBACK_TOUR_CATEGORIES));
 
@@ -244,6 +262,10 @@ function AdminDashboard() {
     setPackageDraft(buildEmptyPackageDraft(packageCategories));
   };
 
+  const resetDestinationForm = () => {
+    setDestinationDraft(buildEmptyDestinationDraft(FALLBACK_DESTINATION_CATEGORIES));
+  };
+
   const resetShopForm = () => {
     setEditingShopId("");
     setShopDraft(buildEmptyShopDraft(shopCategories));
@@ -257,6 +279,11 @@ function AdminDashboard() {
   const handlePackageChange = (event) => {
     const { name, value } = event.target;
     setPackageDraft((current) => ({ ...current, [name]: value }));
+  };
+
+  const handleDestinationChange = (event) => {
+    const { name, value } = event.target;
+    setDestinationDraft((current) => ({ ...current, [name]: value }));
   };
 
   const handleShopChange = (event) => {
@@ -351,6 +378,40 @@ function AdminDashboard() {
       await loadCatalogs({ silent: true });
     } catch (requestError) {
       setError(getErrorMessage(requestError, "Unable to save the package."));
+    } finally {
+      setBusyKey("");
+    }
+  };
+
+  const handleDestinationSubmit = async (event) => {
+    event.preventDefault();
+    setBusyKey("destination-submit");
+    setError("");
+    setNotice("");
+
+    try {
+      const amenities = destinationDraft.amenities
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean);
+
+      const payload = {
+        name: destinationDraft.name,
+        location: destinationDraft.location,
+        category: destinationDraft.category,
+        price: destinationDraft.price,
+        tag: destinationDraft.tag,
+        description: destinationDraft.description,
+        images: destinationDraft.image ? [destinationDraft.image] : [],
+        amenities,
+      };
+
+      await createDestination(payload);
+      setNotice("Destination created.");
+      resetDestinationForm();
+      await loadCatalogs({ silent: true });
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, "Unable to save the destination."));
     } finally {
       setBusyKey("");
     }
@@ -740,42 +801,106 @@ function AdminDashboard() {
             <span>{destinations.length} entries</span>
           </div>
 
-          <div className="admin-table-card">
-            <div className="admin-table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Location</th>
-                    <th>Category</th>
-                    <th>Price</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {destinations.map((destination) => (
-                    <tr key={destination._id}>
-                      <td>
-                        <strong>{destination.name}</strong>
-                        <span>{destination.tag || "-"}</span>
-                      </td>
-                      <td>{destination.location || "-"}</td>
-                      <td>{destination.category || "-"}</td>
-                      <td>{destination.price ? `LKR ${Number(destination.price).toLocaleString()}` : "-"}</td>
-                      <td className="admin-row-actions">
-                        <button
-                          type="button"
-                          className="admin-text-btn admin-text-btn--danger"
-                          onClick={() => handleDestinationDelete(destination._id)}
-                          disabled={busyKey === `destination-delete-${destination._id}`}
-                        >
-                          {busyKey === `destination-delete-${destination._id}` ? "Deleting..." : "Delete"}
-                        </button>
-                      </td>
+          <div className="admin-section-grid">
+            <form className="admin-form-card" onSubmit={handleDestinationSubmit}>
+              <div className="admin-form-head">
+                <h3>Create destination</h3>
+                <button type="button" className="admin-text-btn" onClick={resetDestinationForm}>Clear</button>
+              </div>
+              <div className="admin-form-grid">
+                <label>
+                  <span>Name</span>
+                  <input name="name" value={destinationDraft.name} onChange={handleDestinationChange} required />
+                </label>
+                <label>
+                  <span>Location</span>
+                  <input name="location" value={destinationDraft.location} onChange={handleDestinationChange} required />
+                </label>
+                <label>
+                  <span>Category</span>
+                  <select name="category" value={destinationDraft.category} onChange={handleDestinationChange} required>
+                    {FALLBACK_DESTINATION_CATEGORIES.map((category) => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>Price</span>
+                  <input
+                    name="price"
+                    type="number"
+                    min="0"
+                    value={destinationDraft.price}
+                    onChange={handleDestinationChange}
+                  />
+                </label>
+                <label>
+                  <span>Tag</span>
+                  <input name="tag" value={destinationDraft.tag} onChange={handleDestinationChange} />
+                </label>
+                <label>
+                  <span>Amenities (comma separated)</span>
+                  <input name="amenities" value={destinationDraft.amenities} onChange={handleDestinationChange} />
+                </label>
+                <label className="admin-field-span-2">
+                  <span>Image URL</span>
+                  <input name="image" value={destinationDraft.image} onChange={handleDestinationChange} />
+                </label>
+                <label className="admin-field-span-2">
+                  <span>Description</span>
+                  <textarea
+                    name="description"
+                    rows="4"
+                    value={destinationDraft.description}
+                    onChange={handleDestinationChange}
+                    required
+                  />
+                </label>
+              </div>
+              <div className="admin-form-actions">
+                <button type="submit" className="admin-primary-btn" disabled={Boolean(busyKey)}>
+                  {busyKey === "destination-submit" ? "Saving..." : "Create destination"}
+                </button>
+              </div>
+            </form>
+
+            <div className="admin-table-card">
+              <div className="admin-table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Location</th>
+                      <th>Category</th>
+                      <th>Price</th>
+                      <th>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {destinations.map((destination) => (
+                      <tr key={destination._id}>
+                        <td>
+                          <strong>{destination.name}</strong>
+                          <span>{destination.tag || "-"}</span>
+                        </td>
+                        <td>{destination.location || "-"}</td>
+                        <td>{destination.category || "-"}</td>
+                        <td>{destination.price ? `LKR ${Number(destination.price).toLocaleString()}` : "-"}</td>
+                        <td className="admin-row-actions">
+                          <button
+                            type="button"
+                            className="admin-text-btn admin-text-btn--danger"
+                            onClick={() => handleDestinationDelete(destination._id)}
+                            disabled={busyKey === `destination-delete-${destination._id}`}
+                          >
+                            {busyKey === `destination-delete-${destination._id}` ? "Deleting..." : "Delete"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </section>

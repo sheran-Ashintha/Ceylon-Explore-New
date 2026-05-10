@@ -17,6 +17,8 @@ import {
   mergePlannerDraft,
   parsePlannerMessage,
 } from "../utils/tripPlanner";
+import { evaluateFestivalPlan, optimizeFestivalPlan } from "../utils/festivalPlanner";
+import { evaluateMonsoonPlan, optimizeMonsoonPlan } from "../utils/monsoonPlanner";
 import "./TripPlanner.css";
 
 const EMPTY_PLANNER_ADD_ONS = {
@@ -90,6 +92,26 @@ const TRIP_PLANNER_COPY = {
       readyStatus: "Ready to save",
       collectingStatus: "Collecting details",
       previewNone: "No matched places yet",
+      monsoonTitle: "Monsoon smart optimizer",
+      monsoonBody:
+        "Scores each stop for seasonal rain pressure, route friction, and budget fit, then can auto-reorder your itinerary for safer travel windows.",
+      monsoonScore: "Comfort score",
+      monsoonSafe: "Safe",
+      monsoonCaution: "Caution",
+      monsoonAvoid: "Avoid",
+      monsoonRoute: "Route km",
+      monsoonFix: "Auto Fix My Plan",
+      festivalTitle: "Festival and Poya guard",
+      festivalBody:
+        "Flags Poya-day restrictions, major event crowd pressure, and can reorder your route for either comfort or cultural immersion.",
+      festivalComfortScore: "Comfort",
+      festivalExperienceScore: "Experience",
+      festivalPoya: "Poya stops",
+      festivalEvents: "Event stops",
+      festivalCrowd: "High crowd",
+      festivalRestrictions: "Restrictions",
+      festivalComfortButton: "Prioritize Comfort",
+      festivalExperienceButton: "Prioritize Festivals",
       missing: {
         destinations: "places to visit",
         startDate: "a start date",
@@ -120,6 +142,13 @@ const TRIP_PLANNER_COPY = {
       partialSave:
         "{count} booking(s) were added before the planner stopped. Please check My Bookings before trying again.",
       saveFailed: "The planner could not save those bookings right now. Please try again.",
+      monsoonOptimized:
+        "Monsoon auto-fix applied. Comfort score improved from {from} to {to} (+{gain}) and estimated transfer distance dropped by {route} km.",
+      monsoonStable:
+        "Your itinerary is already monsoon-balanced. Current comfort score: {score}.",
+      festivalOptimized:
+        "{mode} route applied. Comfort score moved from {comfortFrom} to {comfortTo}, experience score moved from {experienceFrom} to {experienceTo}, and restrictions changed from {restrictionsFrom} to {restrictionsTo}.",
+      festivalStable: "Your itinerary is already strong for {mode} mode.",
     },
   },
 };
@@ -320,6 +349,8 @@ export default function TripPlanner() {
   const userInitials = getInitials(user?.name || "You");
   const transportRecommendations = plan.transportRecommendations || [];
   const cafeRecommendations = plan.cafeRecommendations || [];
+  const monsoonInsights = useMemo(() => evaluateMonsoonPlan(plan), [plan]);
+  const festivalInsights = useMemo(() => evaluateFestivalPlan(plan), [plan]);
   const previewStatusLabel = plan.status === "ready" ? copy.summary.readyStatus : copy.summary.collectingStatus;
   const previewDates = plan.status === "ready"
     ? `${formatDateLabel(plan.startDate, locale)} - ${formatDateLabel(plan.endDate, locale)}`
@@ -498,6 +529,106 @@ export default function TripPlanner() {
     setSavedPlanSignature("");
     setError("");
     setMessages([...getInitialMessages(copy), createMessage("assistant", copy.messages.cleared)]);
+  };
+
+  const handleMonsoonAutoFix = () => {
+    if (plan.status !== "ready") {
+      return;
+    }
+
+    const optimization = optimizeMonsoonPlan(plan);
+
+    if (!optimization.changed || !optimization.reorderedDestinations.length) {
+      const stableScore = optimization.after?.averageScore || monsoonInsights?.averageScore || 0;
+      setMessages((currentMessages) => [
+        ...currentMessages,
+        createMessage(
+          "assistant",
+          formatCopy(copy.messages.monsoonStable, {
+            score: formatNumber(stableScore, locale),
+          }),
+        ),
+      ]);
+      return;
+    }
+
+    const nextDraft = {
+      ...draft,
+      destinations: optimization.reorderedDestinations,
+    };
+    const nextPlan = buildTripPlan(nextDraft, plannerAddOns);
+    const scoreFrom = optimization.before?.averageScore || 0;
+    const scoreTo = optimization.after?.averageScore || 0;
+    const scoreGain = Math.max(0, scoreTo - scoreFrom);
+    const routeSaved = Math.max(
+      0,
+      (optimization.before?.routeDistanceKm || 0) - (optimization.after?.routeDistanceKm || 0),
+    );
+
+    setDraft(nextDraft);
+    setPlan(nextPlan);
+    setSavedPlanSignature("");
+    setError("");
+    setMessages((currentMessages) => [
+      ...currentMessages,
+      createMessage(
+        "assistant",
+        formatCopy(copy.messages.monsoonOptimized, {
+          from: formatNumber(scoreFrom, locale),
+          to: formatNumber(scoreTo, locale),
+          gain: formatNumber(scoreGain, locale),
+          route: formatNumber(routeSaved, locale),
+        }),
+      ),
+    ]);
+  };
+
+  const handleFestivalAutoArrange = (mode) => {
+    if (plan.status !== "ready") {
+      return;
+    }
+
+    const optimization = optimizeFestivalPlan(plan, mode);
+    const modeLabel = mode === "experience" ? copy.summary.festivalExperienceButton : copy.summary.festivalComfortButton;
+
+    if (!optimization.changed || !optimization.reorderedDestinations.length) {
+      setMessages((currentMessages) => [
+        ...currentMessages,
+        createMessage(
+          "assistant",
+          formatCopy(copy.messages.festivalStable, {
+            mode: modeLabel,
+          }),
+        ),
+      ]);
+      return;
+    }
+
+    const nextDraft = {
+      ...draft,
+      destinations: optimization.reorderedDestinations,
+    };
+    const nextPlan = buildTripPlan(nextDraft, plannerAddOns);
+
+    setDraft(nextDraft);
+    setPlan(nextPlan);
+    setSavedPlanSignature("");
+    setError("");
+    setMessages((currentMessages) => [
+      ...currentMessages,
+      createMessage(
+        "assistant",
+        formatCopy(copy.messages.festivalOptimized, {
+          mode: modeLabel,
+          comfortFrom: formatNumber(optimization.before?.comfortScore || 0, locale),
+          comfortTo: formatNumber(optimization.after?.comfortScore || 0, locale),
+          experienceFrom: formatNumber(optimization.before?.experienceScore || 0, locale),
+          experienceTo: formatNumber(optimization.after?.experienceScore || 0, locale),
+          restrictionsFrom: formatNumber(optimization.before?.restrictionCount || 0, locale),
+          restrictionsTo: formatNumber(optimization.after?.restrictionCount || 0, locale),
+        }),
+      ),
+    ]);
   };
 
   const handleAddToBookings = async () => {
@@ -743,24 +874,159 @@ export default function TripPlanner() {
                 </div>
               </div>
 
+              {monsoonInsights ? (
+                <section className="tp-monsoon-card">
+                  <div className="tp-monsoon-head">
+                    <div>
+                      <p className="tp-section-label">{copy.summary.monsoonTitle}</p>
+                      <h3>{copy.summary.monsoonTitle}</h3>
+                      <p className="tp-monsoon-copy">{copy.summary.monsoonBody}</p>
+                    </div>
+                    <div className="tp-monsoon-score-pill">
+                      <span>{copy.summary.monsoonScore}</span>
+                      <strong>{monsoonInsights.averageScore}</strong>
+                    </div>
+                  </div>
+
+                  <div className="tp-monsoon-grid">
+                    <div className="tp-monsoon-stat">
+                      <span>{copy.summary.monsoonSafe}</span>
+                      <strong>{monsoonInsights.counts.safe}</strong>
+                    </div>
+                    <div className="tp-monsoon-stat">
+                      <span>{copy.summary.monsoonCaution}</span>
+                      <strong>{monsoonInsights.counts.caution}</strong>
+                    </div>
+                    <div className="tp-monsoon-stat">
+                      <span>{copy.summary.monsoonAvoid}</span>
+                      <strong>{monsoonInsights.counts.avoid}</strong>
+                    </div>
+                    <div className="tp-monsoon-stat">
+                      <span>{copy.summary.monsoonRoute}</span>
+                      <strong>{formatNumber(monsoonInsights.routeDistanceKm, locale)}</strong>
+                    </div>
+                  </div>
+
+                  <button type="button" className="tp-secondary-btn tp-monsoon-btn" onClick={handleMonsoonAutoFix}>
+                    {copy.summary.monsoonFix}
+                  </button>
+                </section>
+              ) : null}
+
+              {festivalInsights ? (
+                <section className="tp-festival-card">
+                  <div className="tp-festival-head">
+                    <div>
+                      <p className="tp-section-label">{copy.summary.festivalTitle}</p>
+                      <h3>{copy.summary.festivalTitle}</h3>
+                      <p className="tp-festival-copy">{copy.summary.festivalBody}</p>
+                    </div>
+                    <div className="tp-festival-score-wrap">
+                      <div className="tp-festival-score-pill">
+                        <span>{copy.summary.festivalComfortScore}</span>
+                        <strong>{festivalInsights.comfortScore}</strong>
+                      </div>
+                      <div className="tp-festival-score-pill">
+                        <span>{copy.summary.festivalExperienceScore}</span>
+                        <strong>{festivalInsights.experienceScore}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="tp-festival-grid">
+                    <div className="tp-festival-stat">
+                      <span>{copy.summary.festivalPoya}</span>
+                      <strong>{festivalInsights.poyaStops}</strong>
+                    </div>
+                    <div className="tp-festival-stat">
+                      <span>{copy.summary.festivalEvents}</span>
+                      <strong>{festivalInsights.eventfulStops}</strong>
+                    </div>
+                    <div className="tp-festival-stat">
+                      <span>{copy.summary.festivalCrowd}</span>
+                      <strong>{festivalInsights.highCrowdStops}</strong>
+                    </div>
+                    <div className="tp-festival-stat">
+                      <span>{copy.summary.festivalRestrictions}</span>
+                      <strong>{festivalInsights.restrictionCount}</strong>
+                    </div>
+                  </div>
+
+                  {festivalInsights.events.length ? (
+                    <div className="tp-festival-chip-row">
+                      {festivalInsights.events.map((event) => (
+                        <span key={event.id} className={`tp-event-badge tp-event-badge--${event.tone}`}>
+                          {event.name}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <div className="tp-festival-actions">
+                    <button
+                      type="button"
+                      className="tp-secondary-btn"
+                      onClick={() => handleFestivalAutoArrange("comfort")}
+                    >
+                      {copy.summary.festivalComfortButton}
+                    </button>
+                    <button
+                      type="button"
+                      className="tp-secondary-btn"
+                      onClick={() => handleFestivalAutoArrange("experience")}
+                    >
+                      {copy.summary.festivalExperienceButton}
+                    </button>
+                  </div>
+                </section>
+              ) : null}
+
               <p className="tp-summary-note">{copy.summary.createsNote}</p>
               {!draft.hasGuestCount ? <p className="tp-summary-note tp-summary-note--soft">{copy.summary.defaultGuestsNote}</p> : null}
 
               <div className="tp-stop-list">
-                {plan.stops.map((stop, index) => (
-                  <article key={`${stop.destination._id}-${stop.checkIn}`} className="tp-stop-card">
-                    {stop.destination.images?.[0] ? (
-                      <img src={stop.destination.images[0]} alt={stop.destination.name} className="tp-stop-image" />
-                    ) : null}
-                    <div className="tp-stop-body">
-                      <span className="tp-stop-kicker">{copy.summary.stopLabel} {index + 1}</span>
-                      <h3>{stop.destination.name}</h3>
-                      <p>{stop.destination.location}</p>
-                      <p>{formatDateLabel(stop.checkIn, locale)} - {formatDateLabel(stop.checkOut, locale)} · {stop.nights} nights</p>
-                      <strong>LKR {formatNumber(stop.totalPrice, locale)}</strong>
-                    </div>
-                  </article>
-                ))}
+                {plan.stops.map((stop, index) => {
+                  const monsoonStop = monsoonInsights?.stops?.[index];
+                  const festivalStop = festivalInsights?.stops?.[index];
+
+                  return (
+                    <article key={`${stop.destination._id}-${stop.checkIn}`} className="tp-stop-card">
+                      {stop.destination.images?.[0] ? (
+                        <img src={stop.destination.images[0]} alt={stop.destination.name} className="tp-stop-image" />
+                      ) : null}
+                      <div className="tp-stop-body">
+                        <span className="tp-stop-kicker">{copy.summary.stopLabel} {index + 1}</span>
+                        <h3>{stop.destination.name}</h3>
+                        <p>{stop.destination.location}</p>
+                        <p>{formatDateLabel(stop.checkIn, locale)} - {formatDateLabel(stop.checkOut, locale)} · {stop.nights} nights</p>
+                        {monsoonStop ? (
+                          <div className="tp-stop-risk-wrap">
+                            <span className={`tp-risk-badge tp-risk-badge--${monsoonStop.tone}`}>
+                              {monsoonStop.label} · {monsoonStop.totalScore}
+                            </span>
+                            <p className="tp-stop-risk-copy">{monsoonStop.summary}</p>
+                          </div>
+                        ) : null}
+                        {festivalStop?.badges?.length ? (
+                          <div className="tp-stop-event-wrap">
+                            <div className="tp-event-badge-row">
+                              {festivalStop.badges.map((badge) => (
+                                <span
+                                  key={`${badge.label}-${badge.tone}`}
+                                  className={`tp-event-badge tp-event-badge--${badge.tone}`}
+                                >
+                                  {badge.label}
+                                </span>
+                              ))}
+                            </div>
+                            <p className="tp-stop-event-copy">{festivalStop.advice}</p>
+                          </div>
+                        ) : null}
+                        <strong>LKR {formatNumber(stop.totalPrice, locale)}</strong>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
 
               {renderTransportSection()}

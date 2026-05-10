@@ -23,6 +23,7 @@ export const deleteUser = (id) => API.delete(`/users/${id}`);
 // Destinations
 export const getDestinations = (params) => API.get("/destinations", { params });
 export const getDestination = (id) => API.get(`/destinations/${id}`);
+export const createDestination = (data) => API.post("/destinations", data);
 export const deleteDestination = (id) => API.delete(`/destinations/${id}`);
 
 // Packages

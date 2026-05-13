@@ -129,7 +129,7 @@
   color: #ffffff;
   text-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
   text-decoration: none;
-  font-family: var(--font-sans);
+  font-family: var(--font-brand);
 }
 
 .auth-brand h2 {
@@ -362,7 +362,7 @@
   color: #ffffff;
   font-size: 0.85rem;
   font-weight: 600;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   cursor: pointer;
   display: flex;
   align-items: center;

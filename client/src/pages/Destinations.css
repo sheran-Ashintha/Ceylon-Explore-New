@@ -43,7 +43,7 @@
   height: 60px;
   background: rgba(8,16,30,0.92);
   backdrop-filter: blur(18px);
-  border-bottom: 1px solid var(--dp-border);
+  border-bottom: none;
 }
 .dp-nav-brand {
   font-size: 1.2rem;
@@ -51,7 +51,7 @@
   color: var(--dp-white);
   text-decoration: none;
   letter-spacing: -0.03em;
-  font-family: var(--dp-display);
+  font-family: var(--font-brand);
 }
 .dp-nav-right {
   display: flex;

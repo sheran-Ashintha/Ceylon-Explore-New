@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import ChatRequestBadge from "../components/ChatRequestBadge";
 import { useAuth } from "../context/useAuth";
@@ -818,11 +818,13 @@ export default function Shopping() {
   const { user, logout } = useAuth();
   const chatRequestCount = useChatRequestCount(Boolean(user));
   const { language, setLanguage } = useSiteLanguage();
+  const areaDropdownRef = useRef(null);
   const [shops, setShops] = useState([]);
   const [categories, setCategories] = useState(CATEGORIES);
   const [areas, setAreas] = useState(AREAS);
   const [activeCategory, setActiveCategory] = useState("All");
   const [activeArea, setActiveArea] = useState(AREA_ALL);
+  const [isAreaMenuOpen, setIsAreaMenuOpen] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
@@ -859,6 +861,34 @@ export default function Shopping() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isAreaMenuOpen) {
+      return undefined;
+    }
+
+    const handlePointerDown = (event) => {
+      if (areaDropdownRef.current && !areaDropdownRef.current.contains(event.target)) {
+        setIsAreaMenuOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setIsAreaMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isAreaMenuOpen]);
+
   const visibleShops = useMemo(() => {
     return shops.filter((shop) => {
       const matchesCat = activeCategory === "All" || shop.category === activeCategory;
@@ -892,6 +922,12 @@ export default function Shopping() {
     setSearchTerm("");
     setActiveCategory("All");
     setActiveArea(AREA_ALL);
+    setIsAreaMenuOpen(false);
+  };
+
+  const handleAreaSelect = (area) => {
+    setActiveArea(area);
+    setIsAreaMenuOpen(false);
   };
 
   const hasActiveFilters = activeCategory !== "All" || activeArea !== AREA_ALL || searchTerm.trim() !== "";
@@ -1004,21 +1040,47 @@ export default function Shopping() {
         <div className="sp-container">
           <div className="sp-filterbar">
             <div className="sp-filter-group">
-              <label className="sp-filter-label" htmlFor="sp-area-filter">
+              <label className="sp-filter-label" id="sp-area-filter-label">
                 {copy.filters.browseByArea}
               </label>
-              <select
-                id="sp-area-filter"
-                className="sp-select"
-                value={activeArea}
-                onChange={(event) => setActiveArea(event.target.value)}
-              >
-                {areas.map((area) => (
-                  <option key={area} value={area}>
-                    {area === AREA_ALL ? copy.filters.allAreas : area}
-                  </option>
-                ))}
-              </select>
+              <div className="sp-dropdown" ref={areaDropdownRef}>
+                <button
+                  id="sp-area-filter"
+                  type="button"
+                  className={`sp-select sp-select-button${isAreaMenuOpen ? " sp-select-button--open" : ""}`}
+                  aria-haspopup="listbox"
+                  aria-expanded={isAreaMenuOpen}
+                  aria-labelledby="sp-area-filter-label"
+                  aria-controls="sp-area-filter-menu"
+                  onClick={() => setIsAreaMenuOpen((open) => !open)}
+                >
+                  <span>{activeArea === AREA_ALL ? copy.filters.allAreas : activeArea}</span>
+                </button>
+                {isAreaMenuOpen && (
+                  <div
+                    id="sp-area-filter-menu"
+                    className="sp-dropdown-menu"
+                    role="listbox"
+                    aria-labelledby="sp-area-filter-label"
+                  >
+                    {areas.map((area) => {
+                      const isSelected = area === activeArea;
+                      return (
+                        <button
+                          key={area}
+                          type="button"
+                          role="option"
+                          aria-selected={isSelected}
+                          className={`sp-dropdown-option${isSelected ? " sp-dropdown-option--selected" : ""}`}
+                          onClick={() => handleAreaSelect(area)}
+                        >
+                          {area === AREA_ALL ? copy.filters.allAreas : area}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
             <p className="sp-results-note">
               {copy.filters.showing} <strong>{visibleShops.length}</strong> {storeLabel}

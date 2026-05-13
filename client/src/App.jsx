@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigationType } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { useAuth } from "./context/useAuth";
+import PlannerRobotLauncher from "./components/PlannerRobotLauncher";
 
 const Home = lazy(() => import("./pages/Home"));
 const Login = lazy(() => import("./pages/Login"));
@@ -72,6 +73,7 @@ function App() {
     <AuthProvider>
       <Router>
         <ScrollToTop />
+        <PlannerRobotLauncher />
         <Suspense fallback={<SiteLoader />}>
           <Routes>
             <Route path="/" element={<Home />} />

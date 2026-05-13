@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import ChatRequestBadge from "../components/ChatRequestBadge";
 import { useAuth } from "../context/useAuth";
 import { useChatRequestCount } from "../utils/chatRequests";
@@ -20,7 +20,7 @@ const TRANSLATIONS = {
       register: "Register",
     },
     hero: {
-      welcome: "Welcome to",
+      welcome: "Ayubowan welcome to",
       gateway: "your gateway to discovering the beauty, culture, and adventure of Sri Lanka",
       planTrip: "Journey Planner",
       imageLabel: "Go to hero image",
@@ -692,7 +692,6 @@ const HERO_VIDEO_URL = "/videos/home-hero.mp4";
 
 
 export default function Home() {
-  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const chatRequestCount = useChatRequestCount(Boolean(user));
   const { language, setLanguage } = useSiteLanguage();
@@ -723,8 +722,6 @@ export default function Home() {
     }, 5000);
     return () => clearInterval(id);
   }, []);
-
-  const goToTripPlanner = () => navigate(user ? "/plan-trip" : "/login");
 
   const handleBackgroundMouseMove = (event) => {
     const target = event.currentTarget;
@@ -809,20 +806,15 @@ export default function Home() {
         <div className="hp-hero-overlay" aria-hidden="true" />
         <div className="hp-hero-body">
           <h1 className="hp-hero-title">
-            {copy.hero.welcome}
+            <span className="hp-hero-title-welcome">{copy.hero.welcome}</span>
             <span className="hp-hero-title-brand"> Ceylon Explore</span>
             <br />
             {copy.hero.gateway}
           </h1>
-
           <div className="hp-hero-cta">
-            <button
-              type="button"
-              className="hp-btn-ghost hp-cta"
-              onClick={goToTripPlanner}
-            >
-              {copy.hero.planTrip}
-            </button>
+            <Link to="/destinations" className="hp-btn-solid hp-cta">
+              {copy.hero.getStarted || "Get Started"}
+            </Link>
           </div>
         </div>
       </section>

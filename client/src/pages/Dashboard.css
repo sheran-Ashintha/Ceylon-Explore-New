@@ -34,6 +34,7 @@
   font-weight: 800;
   color: #1f2937;
   text-decoration: none;
+  font-family: var(--font-brand);
 }
 
 .dash-nav nav {

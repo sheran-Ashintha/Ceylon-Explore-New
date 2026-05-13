@@ -52,6 +52,10 @@ const TRIP_PLANNER_COPY = {
       composerHint:
         "Mention places, dates, nights, and guest count in one message or across several messages. Add transport, airport pickup, or cafes if needed and the planner will include matching suggestions.",
       usePrompt: "Use this prompt",
+      robotShow: "Open Planner Bot",
+      robotHide: "Hide Planner Bot",
+      robotClose: "Close",
+      robotToggleLabel: "Toggle planner robot panel",
       examples: [
         "Plan Ella and Kandy from 10 May 2026 to 15 May 2026 for 2 people",
         "I want Galle and Mirissa for 5 nights from 2026-06-04 for 3 guests with transport",
@@ -256,7 +260,7 @@ function getInitialMessages(copy) {
   return [createMessage("assistant", copy.chat.intro)];
 }
 
-export default function TripPlanner() {
+export default function TripPlanner({ popupMode = false, onClose }) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const chatRequestCount = useChatRequestCount(Boolean(user));
@@ -274,8 +278,12 @@ export default function TripPlanner() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [savedPlanSignature, setSavedPlanSignature] = useState("");
+  const [isRobotOpen, setIsRobotOpen] = useState(popupMode);
+  const [isPromptPickerOpen, setIsPromptPickerOpen] = useState(false);
   const messageListRef = useRef(null);
+  const plannerInputRef = useRef(null);
   const latestDraftRef = useRef(createEmptyPlannerDraft());
+  const plannerPanelOpen = popupMode || isRobotOpen;
 
   useEffect(() => {
     latestDraftRef.current = draft;
@@ -300,7 +308,7 @@ export default function TripPlanner() {
         };
 
         setPlannerAddOns(nextAddOns);
-  setPlan(buildTripPlan(latestDraftRef.current, nextAddOns));
+        setPlan(buildTripPlan(latestDraftRef.current, nextAddOns));
 
         if (destinationsResult.status !== "fulfilled") {
           setDestinations([]);
@@ -332,6 +340,34 @@ export default function TripPlanner() {
     container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
   }, [messages.length]);
 
+  useEffect(() => {
+    if (plannerPanelOpen) {
+      plannerInputRef.current?.focus();
+    }
+  }, [plannerPanelOpen]);
+
+  useEffect(() => {
+    if (!popupMode) {
+      return undefined;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        onClose?.();
+      }
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [popupMode, onClose]);
+
   const planSignature = useMemo(() => {
     if (plan.status !== "ready") {
       return "";
@@ -351,7 +387,7 @@ export default function TripPlanner() {
   const cafeRecommendations = plan.cafeRecommendations || [];
   const monsoonInsights = useMemo(() => evaluateMonsoonPlan(plan), [plan]);
   const festivalInsights = useMemo(() => evaluateFestivalPlan(plan), [plan]);
-  const previewStatusLabel = plan.status === "ready" ? copy.summary.readyStatus : copy.summary.collectingStatus;
+  const previewStatusLabel = plan.status === "ready" ? copy.summary.readyStatus : "";
   const previewDates = plan.status === "ready"
     ? `${formatDateLabel(plan.startDate, locale)} - ${formatDateLabel(plan.endDate, locale)}`
     : draft.startDate
@@ -365,6 +401,20 @@ export default function TripPlanner() {
   const previewTotal = plan.status === "ready"
     ? `LKR ${formatNumber(plan.totalPrice, locale)}`
     : copy.summary.waiting;
+  const showPromptSuggestions = isPromptPickerOpen && copy.chat.examples.length > 0;
+  const popupSummaryText = loading
+    ? copy.chat.loading
+    : error
+      ? error
+      : plan.status === "ready"
+        ? `${previewDates} · ${previewDuration} · ${previewTotal}`
+        : plan.status === "invalid"
+          ? (plan.reason === "too-many-stops" ? copy.messages.tooManyStops : copy.messages.invalidDates)
+          : draft.destinations.length
+            ? formatCopy(copy.messages.needMore, {
+                items: (plan.missing || []).map((key) => copy.summary.missing[key]).join(", "),
+              })
+            : copy.summary.emptyBody;
 
   const languageSelector = (
     <div className="tp-lang">
@@ -481,6 +531,8 @@ export default function TripPlanner() {
       return;
     }
 
+    setIsRobotOpen(true);
+    setIsPromptPickerOpen(false);
     setMessages((currentMessages) => [...currentMessages, createMessage("user", nextMessage)]);
     setDraftMessage("");
     setSavedPlanSignature("");
@@ -526,6 +578,7 @@ export default function TripPlanner() {
     setDraft(emptyDraft);
     setPlan(buildTripPlan(emptyDraft, plannerAddOns));
     setDraftMessage("");
+    setIsPromptPickerOpen(false);
     setSavedPlanSignature("");
     setError("");
     setMessages([...getInitialMessages(copy), createMessage("assistant", copy.messages.cleared)]);
@@ -668,6 +721,270 @@ export default function TripPlanner() {
     }
   };
 
+  const handleViewBookings = () => {
+    if (popupMode) {
+      onClose?.();
+    }
+
+    navigate("/my-bookings");
+  };
+
+  const closePlannerPanel = () => {
+    if (popupMode) {
+      onClose?.();
+      return;
+    }
+
+    setIsRobotOpen(false);
+  };
+
+  const promptSuggestionsPanel = showPromptSuggestions ? (
+    popupMode ? (
+      <section className="tp-popup-prompt-board" id="tp-robot-prompts">
+        <div className="tp-popup-prompt-grid">
+          {copy.chat.examples.map((prompt, index) => (
+            <button
+              key={prompt}
+              type="button"
+              className="tp-popup-prompt-card"
+              onClick={() => handlePlannerMessage(prompt)}
+              aria-label={`${copy.chat.usePrompt}: ${prompt}`}
+            >
+              <span className="tp-popup-prompt-index">{String(index + 1).padStart(2, "0")}</span>
+              <span className="tp-popup-prompt-copy">{prompt}</span>
+              <span className="tp-popup-prompt-action">{copy.chat.usePrompt}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+    ) : (
+      <div className="tp-robot-prompts" id="tp-robot-prompts">
+        <div className="tp-chip-row tp-chip-row--robot">
+          {copy.chat.examples.map((prompt) => (
+            <button
+              key={prompt}
+              type="button"
+              className="tp-chip"
+              onClick={() => handlePlannerMessage(prompt)}
+              aria-label={`${copy.chat.usePrompt}: ${prompt}`}
+            >
+              {prompt}
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  ) : null;
+
+  const plannerMessageList = (
+    <div className="tp-message-list" ref={messageListRef}>
+      {messages.map((message) => (
+        <article key={message.id} className={`tp-message tp-message--${message.role}`}>
+          <div className="tp-message-row">
+            <span className={`tp-message-avatar tp-message-avatar--${message.role}`}>
+              {message.role === "assistant" ? "AI" : userInitials}
+            </span>
+            <div className="tp-message-stack">
+              <span className="tp-message-role">{message.role === "assistant" ? "Planner Bot" : "You"}</span>
+              <div className="tp-message-bubble">{message.text}</div>
+            </div>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+
+  const plannerComposer = (
+    <form className="tp-input-wrap" onSubmit={handleSubmit}>
+      <div className="tp-input-head">
+        <h3 className="tp-input-title">{copy.chat.composerTitle}</h3>
+        <p className="tp-input-copy">{copy.chat.composerHint}</p>
+      </div>
+      <textarea
+        ref={plannerInputRef}
+        value={draftMessage}
+        onChange={(event) => setDraftMessage(event.target.value)}
+        placeholder={copy.chat.placeholder}
+        rows={4}
+      />
+      <div className="tp-input-actions">
+        <button type="button" className="tp-secondary-btn" onClick={handleReset}>
+          {copy.chat.reset}
+        </button>
+        <button type="submit" className="tp-primary-btn">
+          {copy.chat.send}
+        </button>
+      </div>
+    </form>
+  );
+
+  const popupPlannerOverview = popupMode ? (
+    <aside className="tp-popup-overview">
+      <section className={`tp-popup-quote-card${plan.status === "ready" ? " tp-popup-quote-card--ready" : ""}`}>
+        <div className="tp-popup-quote-head">
+          <div>
+            <span className="tp-section-label">{copy.hero.previewTitle}</span>
+            <h3 className="tp-popup-quote-title">{plan.status === "ready" ? previewTotal : copy.chat.panelStatus}</h3>
+            <p className="tp-popup-quote-copy">
+              {plan.status === "ready" ? `${previewDates} · ${previewDuration}` : popupSummaryText}
+            </p>
+          </div>
+          {plan.status === "ready" ? (
+            <span className="tp-popup-quote-badge tp-popup-quote-badge--ready">{copy.summary.readyStatus}</span>
+          ) : null}
+        </div>
+
+        {plan.status === "ready" ? (
+          <>
+            <div className="tp-draft-grid tp-draft-grid--robot">
+              <div className="tp-stat-card">
+                <span>{copy.summary.travelers}</span>
+                <strong>{plan.guests}</strong>
+              </div>
+              <div className="tp-stat-card">
+                <span>{copy.summary.duration}</span>
+                <strong>{previewDuration}</strong>
+              </div>
+              <div className="tp-stat-card tp-stat-card--wide">
+                <span>{copy.summary.dates}</span>
+                <strong>{previewDates}</strong>
+              </div>
+            </div>
+
+            <div className="tp-breakdown-card tp-breakdown-card--robot">
+              <div className="tp-breakdown-row">
+                <span>{copy.summary.staysTotal}</span>
+                <strong>LKR {formatNumber(plan.staysTotal, locale)}</strong>
+              </div>
+              {plan.transportRequested ? (
+                <div className="tp-breakdown-row">
+                  <span>{copy.summary.transportEstimate}</span>
+                  <strong>{plan.transportTotal > 0 ? `LKR ${formatNumber(plan.transportTotal, locale)}` : copy.summary.optionalLabel}</strong>
+                </div>
+              ) : null}
+              <div className="tp-breakdown-row tp-breakdown-row--total">
+                <span>{copy.summary.total}</span>
+                <strong>LKR {formatNumber(plan.totalPrice, locale)}</strong>
+              </div>
+            </div>
+
+            <div className="tp-chip-row tp-chip-row--summary">
+              {plan.stops.map((stop) => (
+                <span key={`${stop.destination._id}-${stop.checkIn}`} className="tp-chip tp-chip--static">
+                  {stop.destination.name}
+                </span>
+              ))}
+            </div>
+
+            <div className="tp-summary-actions tp-summary-actions--robot">
+              <button
+                type="button"
+                className="tp-primary-btn"
+                onClick={handleAddToBookings}
+                disabled={saving || isCurrentPlanSaved}
+              >
+                {saving ? copy.summary.adding : isCurrentPlanSaved ? copy.summary.added : copy.summary.add}
+              </button>
+              <button type="button" className="tp-secondary-btn" onClick={handleViewBookings}>
+                {copy.summary.viewBookings}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="tp-popup-kpi-grid">
+              <div className="tp-popup-kpi-card">
+                <span>{copy.summary.matches}</span>
+                <strong>{draft.destinations.length || 0}</strong>
+              </div>
+              <div className="tp-popup-kpi-card">
+                <span>{copy.summary.travelers}</span>
+                <strong>{draft.guests}</strong>
+              </div>
+              <div className="tp-popup-kpi-card tp-popup-kpi-card--wide">
+                <span>{copy.summary.dates}</span>
+                <strong>{previewDates}</strong>
+              </div>
+              <div className="tp-popup-kpi-card tp-popup-kpi-card--wide">
+                <span>{copy.summary.duration}</span>
+                <strong>{previewDuration}</strong>
+              </div>
+            </div>
+
+            {draft.destinations.length ? (
+              <div className="tp-chip-row tp-chip-row--summary">
+                {draft.destinations.map((destination) => (
+                  <span key={destination._id} className="tp-chip tp-chip--static">
+                    {destination.name}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </>
+        )}
+      </section>
+
+      {promptSuggestionsPanel}
+    </aside>
+  ) : null;
+
+  const plannerConversationPanel = (
+    <aside
+      id="tp-robot-panel"
+      className={`tp-robot-panel${plannerPanelOpen ? " tp-robot-panel--open" : ""}${popupMode ? " tp-robot-panel--standalone" : ""}`}
+      role={popupMode ? "dialog" : undefined}
+      aria-modal={popupMode ? "true" : undefined}
+      aria-labelledby={popupMode ? "tp-popup-title" : undefined}
+    >
+      <div className="tp-message-panel-head">
+        <div>
+          <div className="tp-section-label">{copy.chat.panelTitle}</div>
+          <h2 className="tp-message-panel-title" id={popupMode ? "tp-popup-title" : undefined}>{copy.chat.composerTitle}</h2>
+        </div>
+        <div className="tp-message-panel-actions">
+          <button
+            type="button"
+            className={`tp-message-panel-pill${showPromptSuggestions ? " tp-message-panel-pill--active" : ""}`}
+            onClick={() => setIsPromptPickerOpen((currentValue) => !currentValue)}
+            aria-expanded={showPromptSuggestions}
+            aria-controls="tp-robot-prompts"
+          >
+            {copy.chat.panelStatus}
+          </button>
+          <button type="button" className="tp-robot-close-btn" onClick={closePlannerPanel}>
+            {copy.chat.robotClose}
+          </button>
+        </div>
+      </div>
+
+      {popupMode ? (
+        <div className="tp-popup-layout">
+          {popupPlannerOverview}
+          <div className="tp-popup-conversation">
+            {plannerMessageList}
+            {plannerComposer}
+          </div>
+        </div>
+      ) : (
+        <>
+          {promptSuggestionsPanel}
+          {plannerMessageList}
+          {plannerComposer}
+        </>
+      )}
+    </aside>
+  );
+
+  if (popupMode) {
+    return (
+      <div className="tp-popup-backdrop" onClick={closePlannerPanel}>
+        <div className="tp-popup-shell" onClick={(event) => event.stopPropagation()}>
+          {plannerConversationPanel}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="tp">
       <header className="tp-nav">
@@ -716,7 +1033,7 @@ export default function TripPlanner() {
                 <div className="tp-preview-head">
                   <div>
                     <p className="tp-preview-label">{copy.hero.previewTitle}</p>
-                    <h2 className="tp-preview-title">{previewStatusLabel}</h2>
+                    {previewStatusLabel ? <h2 className="tp-preview-title">{previewStatusLabel}</h2> : null}
                   </div>
                   <span className={`tp-preview-status${plan.status === "ready" ? " tp-preview-status--ready" : ""}`}>
                     {plan.status === "ready" ? "Live" : "Draft"}
@@ -764,11 +1081,6 @@ export default function TripPlanner() {
           </div>
 
           <div className="tp-examples">
-            <div className="tp-examples-head">
-              <div>
-                <div className="tp-section-label">{copy.hero.examplesTitle}</div>
-              </div>
-            </div>
             <div className="tp-example-grid">
               {copy.chat.examples.map((prompt, index) => (
                 <button key={prompt} type="button" className="tp-example-card" onClick={() => handlePlannerMessage(prompt)}>
@@ -779,51 +1091,6 @@ export default function TripPlanner() {
               ))}
             </div>
           </div>
-
-          <div className="tp-message-panel-head">
-            <div>
-              <div className="tp-section-label">{copy.chat.panelTitle}</div>
-              <h2 className="tp-message-panel-title">{copy.chat.composerTitle}</h2>
-            </div>
-            <span className="tp-message-panel-pill">{copy.chat.panelStatus}</span>
-          </div>
-
-          <div className="tp-message-list" ref={messageListRef}>
-            {messages.map((message) => (
-              <article key={message.id} className={`tp-message tp-message--${message.role}`}>
-                <div className="tp-message-row">
-                  <span className={`tp-message-avatar tp-message-avatar--${message.role}`}>
-                    {message.role === "assistant" ? "AI" : userInitials}
-                  </span>
-                  <div className="tp-message-stack">
-                    <span className="tp-message-role">{message.role === "assistant" ? "Planner Bot" : "You"}</span>
-                    <div className="tp-message-bubble">{message.text}</div>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-
-          <form className="tp-input-wrap" onSubmit={handleSubmit}>
-            <div className="tp-input-head">
-              <h3 className="tp-input-title">{copy.chat.composerTitle}</h3>
-              <p className="tp-input-copy">{copy.chat.composerHint}</p>
-            </div>
-            <textarea
-              value={draftMessage}
-              onChange={(event) => setDraftMessage(event.target.value)}
-              placeholder={copy.chat.placeholder}
-              rows={4}
-            />
-            <div className="tp-input-actions">
-              <button type="button" className="tp-secondary-btn" onClick={handleReset}>
-                {copy.chat.reset}
-              </button>
-              <button type="submit" className="tp-primary-btn">
-                {copy.chat.send}
-              </button>
-            </div>
-          </form>
         </section>
 
         <aside className="tp-summary-card">
@@ -1043,7 +1310,7 @@ export default function TripPlanner() {
                 >
                   {saving ? copy.summary.adding : isCurrentPlanSaved ? copy.summary.added : copy.summary.add}
                 </button>
-                <button type="button" className="tp-secondary-btn" onClick={() => navigate("/my-bookings")}>
+                <button type="button" className="tp-secondary-btn" onClick={handleViewBookings}>
                   {copy.summary.viewBookings}
                 </button>
               </div>
@@ -1094,6 +1361,25 @@ export default function TripPlanner() {
           )}
         </aside>
       </main>
+
+      <button
+        type="button"
+        className={`tp-robot-toggle${plannerPanelOpen ? " tp-robot-toggle--active" : ""}`}
+        onClick={() => setIsRobotOpen((currentState) => !currentState)}
+        aria-controls="tp-robot-panel"
+        aria-expanded={plannerPanelOpen}
+        aria-label={copy.chat.robotToggleLabel}
+      >
+        <span className="tp-robot-face" aria-hidden="true">
+          <span className="tp-robot-eye" />
+          <span className="tp-robot-eye" />
+        </span>
+        <span className="tp-robot-toggle-copy">
+          {plannerPanelOpen ? copy.chat.robotHide : copy.chat.robotShow}
+        </span>
+      </button>
+
+      {plannerConversationPanel}
     </div>
   );
 }

@@ -7,6 +7,7 @@
     "dev": "nodemon server.js",
     "seed": "node seed.js",
     "create:admin": "node createAdmin.js",
+    "sync:shops": "node syncShops.js",
     "sync:packages": "node syncPackages.js",
     "seed:chat-demo": "node seedChatDemo.js"
   },

@@ -3,8 +3,10 @@ require("dotenv").config();
 const mongoose = require("mongoose");
 const Destination = require("./models/Destination");
 const Shop = require("./models/Shop");
+const SosContent = require("./models/SosContent");
 const TourService = require("./models/TourService");
 const { syncPackageCatalog } = require("./utils/syncPackageCatalog");
+const { syncSosContent } = require("./utils/syncSosContent");
 const { SHOPS } = require("./utils/shopCatalog");
 const { TOUR_SERVICES } = require("./utils/tourCatalog");
 
@@ -238,6 +240,7 @@ async function seed() {
     await Promise.all([
       Destination.deleteMany({}),
       Shop.deleteMany({}),
+      SosContent.deleteMany({}),
       TourService.deleteMany({}),
     ]);
     await Destination.insertMany(destinations);
@@ -254,8 +257,9 @@ async function seed() {
       }))
     );
     const packageSync = await syncPackageCatalog({ replace: true });
+    await syncSosContent();
     console.log(
-      `Seeded ${destinations.length} destinations, ${SHOPS.length} shops, ${TOUR_SERVICES.length} tour services, and ${packageSync.count} packages successfully`
+      `Seeded ${destinations.length} destinations, ${SHOPS.length} shops, ${TOUR_SERVICES.length} tour services, SOS content, and ${packageSync.count} packages successfully`
     );
     process.exit(0);
   } catch (err) {

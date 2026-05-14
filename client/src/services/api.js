@@ -65,4 +65,8 @@ export const addChatFriend = (memberId) => API.post(`/chat/friends/${memberId}`)
 export const acceptChatFriendRequest = (memberId) => API.post(`/chat/friends/${memberId}/accept`);
 export const declineChatFriendRequest = (memberId) => API.post(`/chat/friends/${memberId}/decline`);
 
+// SOS
+export const getTouristHelpContent = () => API.get("/sos");
+export const updateTouristHelpContent = (data) => API.put("/sos", data);
+
 export default API;

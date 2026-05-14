@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import ChatRequestBadge from "../components/ChatRequestBadge";
 import { useAuth } from "../context/useAuth";
 import {
@@ -233,10 +233,12 @@ function getGeoErrorMessage(error, copy) {
 
 export default function Chat() {
   const { user, logout } = useAuth();
+  const { search } = useLocation();
   const { language, setLanguage } = useSiteLanguage();
   const copy = getLocalizedSiteCopy(CHAT_COPY, language);
   const locale = SITE_LANGUAGE_DATE_LOCALES[language] || "en-US";
   const currentUserId = user?._id || user?.id;
+  const shouldAutoShareLocation = new URLSearchParams(search).get("shareLocation") === "1";
   const [messages, setMessages] = useState([]);
   const [members, setMembers] = useState([]);
   const [incomingRequests, setIncomingRequests] = useState([]);
@@ -250,6 +252,7 @@ export default function Chat() {
   const [locationUpdating, setLocationUpdating] = useState(false);
   const [locationError, setLocationError] = useState("");
   const messageListRef = useRef(null);
+  const autoShareLocationRef = useRef(false);
 
   const memberCount = members.length;
   const mapMembers = members.filter((member) => {
@@ -399,6 +402,20 @@ export default function Chat() {
     }
   };
 
+  useEffect(() => {
+    if (!shouldAutoShareLocation) {
+      autoShareLocationRef.current = false;
+      return;
+    }
+
+    if (loading || locationUpdating || isSharingLocation || autoShareLocationRef.current) {
+      return;
+    }
+
+    autoShareLocationRef.current = true;
+    void handleToggleLocationSharing();
+  }, [shouldAutoShareLocation, loading, locationUpdating, isSharingLocation]);
+
   const handleAddFriend = async (memberId) => {
     if (!memberId || memberId === currentUserId || processingMemberId === memberId) {
       return;
@@ -497,6 +514,7 @@ export default function Chat() {
           <Link to="/destinations" className="sp-nav-link">{copy.nav.destinations}</Link>
           <Link to="/shopping" className="sp-nav-link">{copy.nav.shopping}</Link>
           <Link to="/tours" className="sp-nav-link">{copy.nav.tours}</Link>
+          <Link to="/sos" className="sp-nav-link">SOS</Link>
           <Link to="/chat" className="sp-nav-link">{copy.nav.chat}<ChatRequestBadge count={incomingRequests.length} /></Link>
           <Link to="/my-bookings" className="sp-nav-link">{copy.nav.myBookings}</Link>
           {languageSelector}

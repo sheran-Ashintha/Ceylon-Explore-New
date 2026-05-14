@@ -1004,6 +1004,9 @@ export default function TripPlanner({ popupMode = false, onClose }) {
           <Link to="/tours" className="tp-nav-link">
             {navCopy.nav.tours || "Tours"}
           </Link>
+          <Link to="/sos" className="tp-nav-link">
+            SOS
+          </Link>
           <Link to="/chat" className="tp-nav-link">
             {navCopy.nav.chat || "Chat"}
             <ChatRequestBadge count={chatRequestCount} />

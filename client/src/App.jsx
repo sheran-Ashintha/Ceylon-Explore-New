@@ -17,6 +17,7 @@ const Tours = lazy(() => import("./pages/Tours"));
 const Chat = lazy(() => import("./pages/Chat"));
 const TripPlanner = lazy(() => import("./pages/TripPlanner"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const TouristHelp = lazy(() => import("./pages/TouristHelp"));
 
 function SiteLoader() {
   return (
@@ -89,6 +90,8 @@ function App() {
             <Route path="/tours" element={<Tours />} />
             <Route path="/shopping" element={<Shopping />} />
             <Route path="/shopping/:shopId" element={<ShopDetail />} />
+            <Route path="/sos" element={<TouristHelp />} />
+            <Route path="/tourist-help" element={<Navigate to="/sos" replace />} />
           </Routes>
         </Suspense>
       </Router>

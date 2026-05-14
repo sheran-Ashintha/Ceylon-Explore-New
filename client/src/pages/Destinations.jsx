@@ -211,6 +211,9 @@ export default function Destinations() {
           <Link to="/tours" className="dp-nav-link">
             {copy.nav.tours || "Tours"}
           </Link>
+          <Link to="/sos" className="dp-nav-link">
+            SOS
+          </Link>
           <Link to={user ? "/chat" : "/login"} className="dp-nav-link">
             {copy.nav.chat || "Chat"}
             <ChatRequestBadge count={chatRequestCount} />

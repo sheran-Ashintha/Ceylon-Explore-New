@@ -94,6 +94,7 @@ function MyBookings() {
           <Link to="/destinations" className="mb-nav-link">{copy.nav.destinations || "Destinations"}</Link>
           <Link to="/shopping" className="mb-nav-link">{copy.nav.shopping || "Stores"}</Link>
           <Link to="/tours" className="mb-nav-link">{copy.nav.tours || "Tours"}</Link>
+          <Link to="/sos" className="mb-nav-link">SOS</Link>
           <Link to="/chat" className="mb-nav-link">{copy.nav.chat || "Chat"}<ChatRequestBadge count={chatRequestCount} /></Link>
           <Link to="/my-bookings" className="mb-nav-link">{copy.nav.myBookings || "My Bookings"}</Link>
           {languageSelector}

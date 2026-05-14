@@ -218,7 +218,7 @@ async function updateLocation(req, res) {
             "chatLocation.updatedAt": new Date(),
           },
         },
-        { new: true },
+          { returnDocument: "after" },
       )
         .select("chatLocation")
         .lean();
@@ -254,7 +254,7 @@ async function updateLocation(req, res) {
           "chatLocation.updatedAt": new Date(),
         },
       },
-      { new: true },
+        { returnDocument: "after" },
     )
       .select("chatLocation")
       .lean();

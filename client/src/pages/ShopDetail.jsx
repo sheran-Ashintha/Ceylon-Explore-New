@@ -86,6 +86,9 @@ export default function ShopDetail() {
             <Link to="/tours" className="sp-nav-link">
               {copy.nav.tours || "Tours"}
             </Link>
+            <Link to="/sos" className="sp-nav-link">
+              SOS
+            </Link>
             <Link to={user ? "/chat" : "/login"} className="sp-nav-link">
               {copy.nav.chat || "Chat"}
               <ChatRequestBadge count={chatRequestCount} />
@@ -159,6 +162,9 @@ export default function ShopDetail() {
           </Link>
           <Link to="/tours" className="sp-nav-link">
             {copy.nav.tours || "Tours"}
+          </Link>
+          <Link to="/sos" className="sp-nav-link">
+            SOS
           </Link>
           <Link to={user ? "/chat" : "/login"} className="sp-nav-link">
             {copy.nav.chat || "Chat"}

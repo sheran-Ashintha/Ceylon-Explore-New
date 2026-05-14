@@ -754,6 +754,9 @@ export default function Home() {
           <Link to="/tours" className="hp-nav-link">
             {copy.nav.tours}
           </Link>
+          <Link to="/sos" className="hp-nav-link">
+            SOS
+          </Link>
           <Link to={user ? "/chat" : "/login"} className="hp-nav-link">
             {copy.nav.chat || "Chat"}
             <ChatRequestBadge count={chatRequestCount} />

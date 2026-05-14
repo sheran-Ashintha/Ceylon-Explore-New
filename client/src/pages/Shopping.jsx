@@ -966,6 +966,7 @@ export default function Shopping() {
           <Link to="/destinations" className="sp-nav-link">{copy.nav.destinations}</Link>
           <Link to="/shopping" className="sp-nav-link">{copy.nav.shopping}</Link>
           <Link to="/tours" className="sp-nav-link">{copy.nav.tours || "Tours"}</Link>
+          <Link to="/sos" className="sp-nav-link">SOS</Link>
           <Link to={user ? "/chat" : "/login"} className="sp-nav-link">{copy.nav.chat || "Chat"}<ChatRequestBadge count={chatRequestCount} /></Link>
           {user ? (
             <>

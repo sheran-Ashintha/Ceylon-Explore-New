@@ -105,8 +105,6 @@ export default function TouristHelp() {
   useEffect(() => {
     let active = true;
 
-    setLoading(true);
-
     getTouristHelpContent()
       .then(({ data }) => {
         if (!active) {

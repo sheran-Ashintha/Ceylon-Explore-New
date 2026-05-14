@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import { Link, useLocation } from "react-router-dom";
@@ -214,23 +214,6 @@ function requestCurrentPosition() {
   });
 }
 
-function getGeoErrorMessage(error, copy) {
-  if (error?.message === "UNSUPPORTED") {
-    return copy.errors.locationUnsupported;
-  }
-
-  switch (error?.code) {
-    case 1:
-      return copy.errors.locationPermission;
-    case 2:
-      return copy.errors.locationUnavailable;
-    case 3:
-      return copy.errors.locationTimeout;
-    default:
-      return copy.errors.locationShare;
-  }
-}
-
 export default function Chat() {
   const { user, logout } = useAuth();
   const { search } = useLocation();
@@ -348,7 +331,7 @@ export default function Chat() {
     }
   };
 
-  const applyOwnLocation = (nextLocation) => {
+  const applyOwnLocation = useCallback((nextLocation) => {
     const latitude = Number(nextLocation?.latitude);
     const longitude = Number(nextLocation?.longitude);
     const normalizedLocation = {
@@ -364,9 +347,9 @@ export default function Chat() {
         ? { ...member, location: normalizedLocation }
         : member
     )));
-  };
+  }, [currentUserId]);
 
-  const handleToggleLocationSharing = async () => {
+  const handleToggleLocationSharing = useCallback(async () => {
     if (locationUpdating) {
       return;
     }
@@ -395,12 +378,41 @@ export default function Chat() {
       if (err.response?.data?.message) {
         setLocationError(err.response.data.message);
       } else {
-        setLocationError(getGeoErrorMessage(err, copy));
+        let nextErrorMessage = copy.errors.locationShare;
+
+        if (err?.message === "UNSUPPORTED") {
+          nextErrorMessage = copy.errors.locationUnsupported;
+        } else {
+          switch (err?.code) {
+            case 1:
+              nextErrorMessage = copy.errors.locationPermission;
+              break;
+            case 2:
+              nextErrorMessage = copy.errors.locationUnavailable;
+              break;
+            case 3:
+              nextErrorMessage = copy.errors.locationTimeout;
+              break;
+            default:
+              nextErrorMessage = copy.errors.locationShare;
+          }
+        }
+
+        setLocationError(nextErrorMessage);
       }
     } finally {
       setLocationUpdating(false);
     }
-  };
+  }, [
+    applyOwnLocation,
+    copy.errors.locationPermission,
+    copy.errors.locationShare,
+    copy.errors.locationTimeout,
+    copy.errors.locationUnavailable,
+    copy.errors.locationUnsupported,
+    isSharingLocation,
+    locationUpdating,
+  ]);
 
   useEffect(() => {
     if (!shouldAutoShareLocation) {
@@ -414,7 +426,7 @@ export default function Chat() {
 
     autoShareLocationRef.current = true;
     void handleToggleLocationSharing();
-  }, [shouldAutoShareLocation, loading, locationUpdating, isSharingLocation]);
+  }, [shouldAutoShareLocation, loading, locationUpdating, isSharingLocation, handleToggleLocationSharing]);
 
   const handleAddFriend = async (memberId) => {
     if (!memberId || memberId === currentUserId || processingMemberId === memberId) {

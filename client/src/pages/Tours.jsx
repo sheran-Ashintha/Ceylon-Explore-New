@@ -175,11 +175,11 @@ const TOUR_SERVICES = [
 
 const CATEGORIES = [
   "All",
+  "Safari Jeeps",
   "Tuk Tuk Rides",
+  "Private Car",
   "Van with Driver",
   "Airport Transfers",
-  "Private Car",
-  "Safari Jeeps",
   "Coaches",
 ];
 
@@ -194,6 +194,14 @@ const CATEGORY_ICONS = {
 };
 
 const AREA_ALL = "All Areas";
+const CATEGORY_SHARED_IMAGES = {
+  "Tuk Tuk Rides": "https://bestofceylon.com/images/sri-lanka-tailor-made-holidays-tours/essentials-tours-in-sri-lanka/sri-lanka-in-three-weeks-summer/sri-lanka-tours-and-holidays-tailor-made-04.jpg",
+  "Van with Driver": "https://dynamic-media-cdn.tripadvisor.com/media/photo-o/0c/a2/44/42/getlstd-property-photo.jpg?w=1200&h=1200&s=1",
+  "Airport Transfers": "https://go-sri-lanka.com/wp-content/uploads/2023/03/transfer-sri-lanka.webp",
+  "Private Car": "https://tse4.mm.bing.net/th/id/OIP.9OUuiPx8Mrl1P6fZ_SVb6gHaE7?rs=1&pid=ImgDetMain&o=7&rm=3",
+  "Safari Jeeps": "https://go-sri-lanka.com/wp-content/uploads/2023/02/yala-jeep-safari-sri-lanka.webp",
+  Coaches: "https://mysltravel.com/wp-content/uploads/2022/09/Screenshot-2022-09-08-153234.png",
+};
 const PROVINCES = new Set([
   "Western Province",
   "Central Province",
@@ -310,6 +318,18 @@ function getRatingText(rating, reviewCount, copy) {
   return ratingLabel;
 }
 
+function getServiceImage(service) {
+  return CATEGORY_SHARED_IMAGES[service.category] || service.image;
+}
+
+function handleServiceImageError(event, fallbackImage) {
+  if (!fallbackImage || event.currentTarget.src === fallbackImage) {
+    return;
+  }
+
+  event.currentTarget.src = fallbackImage;
+}
+
 export default function Tours() {
   const areaDropdownRef = useRef(null);
   const { user, logout } = useAuth();
@@ -386,23 +406,38 @@ export default function Tours() {
   }, [isAreaMenuOpen]);
 
   const visibleServices = useMemo(() => {
-    return services.filter((service) => {
-      const matchesCategory = activeCategory === "All" || service.category === activeCategory;
-      const matchesArea = activeArea === AREA_ALL || getServiceArea(service.location) === activeArea;
-      const query = searchTerm.trim().toLowerCase();
-      const matchesSearch =
-        !query ||
-        service.name.toLowerCase().includes(query) ||
-        service.category.toLowerCase().includes(query) ||
-        service.location.toLowerCase().includes(query) ||
-        getServiceArea(service.location).toLowerCase().includes(query) ||
-        service.description.toLowerCase().includes(query) ||
-        service.tag.toLowerCase().includes(query) ||
-        service.idealFor.toLowerCase().includes(query);
+    const categoryPriority = new Map(categories.map((category, index) => [category, index]));
 
-      return matchesCategory && matchesArea && matchesSearch;
-    });
-  }, [activeArea, activeCategory, searchTerm, services]);
+    return services
+      .filter((service) => {
+        const matchesCategory = activeCategory === "All" || service.category === activeCategory;
+        const matchesArea = activeArea === AREA_ALL || getServiceArea(service.location) === activeArea;
+        const query = searchTerm.trim().toLowerCase();
+        const matchesSearch =
+          !query ||
+          service.name.toLowerCase().includes(query) ||
+          service.category.toLowerCase().includes(query) ||
+          service.location.toLowerCase().includes(query) ||
+          getServiceArea(service.location).toLowerCase().includes(query) ||
+          service.description.toLowerCase().includes(query) ||
+          service.tag.toLowerCase().includes(query) ||
+          service.idealFor.toLowerCase().includes(query);
+
+        return matchesCategory && matchesArea && matchesSearch;
+      })
+      .map((service, index) => ({ service, index }))
+      .sort((left, right) => {
+        const leftPriority = categoryPriority.get(left.service.category) ?? Number.MAX_SAFE_INTEGER;
+        const rightPriority = categoryPriority.get(right.service.category) ?? Number.MAX_SAFE_INTEGER;
+
+        if (leftPriority !== rightPriority) {
+          return leftPriority - rightPriority;
+        }
+
+        return left.index - right.index;
+      })
+      .map(({ service }) => service);
+  }, [activeArea, activeCategory, categories, searchTerm, services]);
 
   const handleSearch = (event) => {
     event.preventDefault();
@@ -620,7 +655,12 @@ export default function Tours() {
               {visibleServices.map((service) => (
                 <article key={service.id} className="sp-card tp-card">
                   <div className="sp-card-img">
-                    <img src={service.image} alt={service.name} loading="lazy" />
+                    <img
+                      src={getServiceImage(service)}
+                      alt={service.name}
+                      loading="lazy"
+                      onError={(event) => handleServiceImageError(event, service.image)}
+                    />
                     <span className="sp-card-badge sp-card-badge--tag">{service.tag}</span>
                     <span className="sp-card-badge sp-card-badge--cat">
                       {CATEGORY_ICONS[service.category]} {service.category}
